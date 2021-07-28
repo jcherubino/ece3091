@@ -31,7 +31,12 @@ wstool init src melodic-ros_comm-wet.rosinstall
 cd ~/ros_catkin_ws
 rosdep install -y --from-paths src --ignore-src --rosdistro melodic -r --os=debian:buster
 
-sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release --install-space /opt/ros/melodic
+#before doing make expand swapfile size (as I found the CMAKE command below failed without doing so)
+#open the file in /etc/dphys-swapfile (you will need root permissions to modify) and change CONF_SWAPSIZE to
+#CONF_SWAPSIZE=1024. then reboot to make sure changes take effect
+sudo reboot now
+
+sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release --install-space /opt/ros/melodic -j2
 
 source /opt/ros/melodic/setup.bash
 echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
