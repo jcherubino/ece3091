@@ -14,6 +14,11 @@ sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main
 
 sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
 
+sudo apt-get update
+sudo apt-get upgrade
+
+sudo apt install -y python-rosdep python-rosinstall-generator python-wstool python-rosinstall build-essential cmake
+
 sudo rosdep init
 rosdep update
 
@@ -30,5 +35,12 @@ sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release 
 
 source /opt/ros/melodic/setup.bash
 echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+
+sudo apt-get install python-catkin-tools
+mkdir -p ~/catkin_ws/src
+cd ~/catkin_ws
+source /opt/ros/melodic/setup.bash
+catkin build
+echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
 
 ```
