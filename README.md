@@ -1,1 +1,34 @@
 # ece3091
+
+## Setup process
+
+The following was done on a fresh install of Raspberry Pi OS Lite (although I imagine full-version can be used with no issues)
+
+```sh
+#Using http://wiki.ros.org/ROSberryPi/Installing%20ROS%20Melodic%20on%20the%20Raspberry%20Pi as reference
+
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+
+#The second command did not work (to add keyserver) so did some research and found this 
+#(https://discourse.ros.org/t/new-gpg-keys-deployed-for-packages-ros-org/9454) which suggested
+
+sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+
+sudo rosdep init
+rosdep update
+
+mkdir -p ~/ros_catkin_ws
+cd ~/ros_catkin_ws
+
+rosinstall_generator ros_comm --rosdistro melodic --deps --wet-only --tar > melodic-ros_comm-wet.rosinstall
+wstool init src melodic-ros_comm-wet.rosinstall
+
+cd ~/ros_catkin_ws
+rosdep install -y --from-paths src --ignore-src --rosdistro melodic -r --os=debian:buster
+
+sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release --install-space /opt/ros/melodic
+
+source /opt/ros/melodic/setup.bash
+echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+
+```
