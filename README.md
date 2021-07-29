@@ -5,7 +5,7 @@
 The following was done on a fresh install of Raspberry Pi OS Lite (although I imagine full-version can be used with no issues)
 
 ```sh
-#Using http://wiki.ros.org/ROSberryPi/Installing%20ROS%20Melodic%20on%20the%20Raspberry%20Pi as reference
+#Using http://wiki.ros.org/action/fullsearch/ROSberryPi/Installing%20ROS%20Melodic%20on%20the%20Raspberry%20Pi?action=fullsearch&context=180&value=linkto%3A%22ROSberryPi%2FInstalling+ROS+Melodic+on+the+Raspberry+Pi%22
 
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 
