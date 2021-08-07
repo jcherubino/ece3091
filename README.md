@@ -15,11 +15,11 @@ Then, must specify a resolution that is **not the default resolution** under *Di
 
 We also don't want to run the desktop on the pi all the time, so access `sudo raspi-config` and go to *Boot options* and choose to run in Console mode (and require user to login)
 
+Open `sudo raspi-config` again and navigate to *System options* and set the host name to **group5** (meaning the pi will be accessible at *group5.local*) and the password to *groupfive*
+
 To start a virtual desktop on the pi, SSH into it and run `vncserver`.
 Note down the IP and dislpay number printed to the terminal and use the *RealVNC* viewer to connect to this IP.
 To end the virtual desktop, run `vncserver -kill:<display_number>`
-
-Open `sudo raspi-config` again and navigate to *System options* and set the host name to **group5** (meaning the pi will be accessible at *group5.local*) and the password to *groupfive*
 
 ### ROS installation
 ```sh
