@@ -2,19 +2,18 @@
 
 ## Setup process
 
-The following was done on a fresh install of Raspberry Pi OS Lite (although I imagine full-version can be used with no issues)
+The following was done on a fresh install of Raspberry Pi OS (although I imagine full-version can be used with no issues)
+
+`sudo apt update && sudo apt upgrade`
 
 Access `sudo raspi-config` and go to advanced options and expand the filesystem to allow the entirety of the boot drive to be used. (requires reboot to take effect).
 
 Then setup VNC https://www.raspberrypi.org/documentation/remote-access/vnc/
 
-```sh
-sudo apt update
-sudo apt install realvnc-vnc-server realvnc-vnc-viewer
-```
-
 Open `sudo raspi-config`, navigate to **interfacing options->VNC** and enable it.
 Then, must specify a resolution that is **not the default resolution** under *Display->resolution*.
+
+We also don't want to run the desktop on the pi all the time, so access `sudo raspi-config` and go to *Boot options* and choose to run in Console mode (and require user to login)
 
 To start a virtual desktop on the pi, SSH into it and run `vncserver`.
 Note down the IP and dislpay number printed to the terminal and use the *RealVNC* viewer to connect to this IP.
