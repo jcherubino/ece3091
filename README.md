@@ -19,7 +19,7 @@ Open `sudo raspi-config` again and navigate to *System options* and set the host
 
 To start a virtual desktop on the pi, SSH into it and run `vncserver`.
 Note down the IP and dislpay number printed to the terminal and use the *RealVNC* viewer to connect to this IP.
-To end the virtual desktop, run `vncserver -kill:<display_number>`
+To end the virtual desktop, run `vncserver -kill :<display_number>`
 
 ### ROS installation
 ```sh
