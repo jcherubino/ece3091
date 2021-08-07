@@ -53,7 +53,7 @@ rosdep install -y --from-paths src --ignore-src --rosdistro melodic -r --os=debi
 #open the file in /etc/dphys-swapfile (you will need root permissions to modify) and change CONF_SWAPSIZE to
 #CONF_SWAPSIZE=1024. then reboot to make sure changes take effect
 sudo reboot now
-
+cd ~/ros_catkin_ws
 sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release --install-space /opt/ros/melodic -j2
 
 source /opt/ros/melodic/setup.bash
