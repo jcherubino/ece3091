@@ -67,3 +67,7 @@ catkin build
 echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
 
 ```
+
+### Additional package installation
+
+Install opencv: `sudo apt install python-opencv` (get python2 compatible version to work with ROS melodic and python 2 compatability)
