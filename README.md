@@ -14,6 +14,7 @@ sudo apt install realvnc-vnc-server realvnc-vnc-viewer
 ```
 
 Open `sudo raspi-config`, navigate to **interfacing options->VNC** and enable it.
+Then, must specify a resolution that is **not the default resolution** under *Display->resolution*.
 
 To start a virtual desktop on the pi, SSH into it and run `vncserver`.
 Note down the IP and dislpay number printed to the terminal and use the *RealVNC* viewer to connect to this IP.
