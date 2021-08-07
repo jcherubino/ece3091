@@ -2,7 +2,7 @@
 
 ## Setup process
 
-The following was done on a fresh install of Raspberry Pi OS (although I imagine full-version can be used with no issues)
+The following was done on a fresh install of Raspberry Pi OS
 
 `sudo apt update && sudo apt upgrade`
 
