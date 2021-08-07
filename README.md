@@ -4,6 +4,24 @@
 
 The following was done on a fresh install of Raspberry Pi OS Lite (although I imagine full-version can be used with no issues)
 
+Access `sudo raspi-config` and go to advanced options and expand the filesystem to allow the entirety of the boot drive to be used. (requires reboot to take effect).
+
+Then setup VNC https://www.raspberrypi.org/documentation/remote-access/vnc/
+
+```sh
+sudo apt update
+sudo apt install realvnc-vnc-server realvnc-vnc-viewer
+```
+
+Open `sudo raspi-config`, navigate to **interfacing options->VNC** and enable it.
+
+To start a virtual desktop on the pi, SSH into it and run `vncserver`.
+Note down the IP and dislpay number printed to the terminal and use the *RealVNC* viewer to connect to this IP.
+To end the virtual desktop, run `vncserver -kill:<display_number>`
+
+Open `sudo raspi-config` again and navigate to *System options* and set the host name to **group5** (meaning the pi will be accessible at *group5.local*) and the password to *groupfive*
+
+### ROS installation
 ```sh
 #Using http://wiki.ros.org/action/fullsearch/ROSberryPi/Installing%20ROS%20Melodic%20on%20the%20Raspberry%20Pi?action=fullsearch&context=180&value=linkto%3A%22ROSberryPi%2FInstalling+ROS+Melodic+on+the+Raspberry+Pi%22
 
