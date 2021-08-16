@@ -9,10 +9,10 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## Generate messages in the 'msg' folder
-#add_message_files(
-#   FILES
-#   ExampleMessage.msg
-#)
+add_message_files(
+   FILES
+   CamData.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
 #   Service2.srv
 # )
 
-#generate_messages(DEPENDENCIES std_msgs ${PROJECT_NAME})
+generate_messages(DEPENDENCIES std_msgs ${PROJECT_NAME})
 
 catkin_package(
   LIBRARIES ${PROJECT_NAME}
