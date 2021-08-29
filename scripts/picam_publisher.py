@@ -6,7 +6,7 @@ ECE3091 Group 5
 This node is a publisher for the raw pi camera data.
 
 Publishes to:
-    /sensors/picam with message format TODO: add format
+    /sensors/picam with message format CamData
 
 Written by Josh Cherubino
 Last edited 16/08/21 by Josh Cherubino
