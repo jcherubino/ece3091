@@ -13,6 +13,7 @@ add_message_files(
    FILES
    CamData.msg
    DistanceData.msg
+   MotorCmd.msg
 )
 
 ## Generate services in the 'srv' folder
