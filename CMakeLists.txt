@@ -14,13 +14,14 @@ add_message_files(
    CamData.msg
    DistanceData.msg
    MotorCmd.msg
+   OdometryData.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service2.srv
-# )
+ add_service_files(
+   FILES
+   Empty.srv
+)
 
 generate_messages(DEPENDENCIES std_msgs ${PROJECT_NAME})
 
