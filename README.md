@@ -71,3 +71,5 @@ echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
 ### Additional package installation
 
 Install opencv: `sudo apt install python-opencv` (get python2 compatible version to work with ROS melodic and python 2 compatability)
+
+Get `pigpio` daemon to run on startup with: `sudo systemctl enable pigpiod`. Will require reboot to take effect or also run `sudo systemctl start pigpiod` to start immediately
