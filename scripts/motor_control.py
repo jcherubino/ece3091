@@ -44,9 +44,9 @@ class MotorController(object):
         # 0 --> stop
         # 1 --> forward
         # 2 --> reverse
-        # 3 --> left
-        # 4 --> right
-        self.CMD_MAP = [self.stop, self.forward, self.reverse, self.left, self.right]
+        # 3 --> cw
+        # 4 --> ccw
+        self.CMD_MAP = [self.stop, self.forward, self.reverse, self.cw, self.ccw]
 
     def callback(self, motor_cmd):
         '''
@@ -78,13 +78,13 @@ class MotorController(object):
         #takes *args for consistent interface
         self.pwm.value = 0
 
-    def left(self, speed):
+    def cw(self, speed):
         #spin left motor backwards and right motor forwards
         self.left_dir.on()
         self.right_dir.off()
         self.pwm.value = speed
 
-    def right(self, speed):
+    def ccw(self, speed):
         #spin right motor backwards and left motor forwards
         self.left_dir.off()
         self.right_dir.on()
