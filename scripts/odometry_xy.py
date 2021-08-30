@@ -82,8 +82,8 @@ def odometry_node():
         odom.orientation = math.copysign(abs(odom.orientation) % 360.0, odom.orientation)
         
         #use orientation and distance to calculate change in x and y position (assume straight path)
-        odom.x += distance*math.cos(odom.orientation)
-        odom.y += distance*math.sin(odom.orientation)
+        odom.x += distance*math.cos(math.radians(odom.orientation))
+        odom.y += distance*math.sin(math.radians(odom.orientation))
 
         pub.publish(odom)
         rate.sleep()

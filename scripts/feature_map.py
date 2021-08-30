@@ -20,6 +20,7 @@ Last edited 30/08/21 by Josh Cherubino
 
 import rospy
 import gpiozero
+import math
 from ece3091.msg import DistanceData, FeatureMap, OdometryDataXY
 
 RATE = 10
@@ -52,15 +53,16 @@ class FeatureMapper(object):
         '''
         #update obstacles map
         #assume each detected distance value is a single point in feature map
+        #must also use robot orientation to transform points into starting coordinate system
         #front
-        self.obstacle_x.append(self.cur_x)
-        self.obstacle_y.append(self.cur_y + distance_data.front)
+        self.obstacle_x.append(self.cur_x + distance_data.front*math.cos(math.radians(self.cur_orientation)))
+        self.obstacle_y.append(self.cur_y + distance_data.front*math.sin(math.radians(self.cur_orientation)))
         #left
-        self.obstacle_x.append(self.cur_x - distance_data.left)
-        self.obstacle_y.append(self.cur_y)
+        self.obstacle_x.append(self.cur_x - distance_data.left*math.cos(math.radians(90 - self.cur_orientation)))
+        self.obstacle_y.append(self.cur_y + distance_data.left*math.sin(math.radians(90 - self.cur_orientation)))
         #right
-        self.obstacle_x.append(self.cur_x + distance_data.left)
-        self.obstacle_y.append(self.cur_y)
+        self.obstacle_x.append(self.cur_x + distance_data.right*math.cos(math.radians(90 - self.cur_orientation)))
+        self.obstacle_y.append(self.cur_y - distance_data.right*math.sin(math.radians(90 - self.cur_orientation)))
 
     def odom_callback(self, odometry_data):
         '''
@@ -75,11 +77,11 @@ class FeatureMapper(object):
         Method to give the current feature map and clear its contents
         Return in order (targets, obstacles)
         '''
-        msg = FeatureMap(self.target_x, self.target_y, self.obstacle_x, self.obstacle_y,
-                self.cur_orientation)
+        msg = FeatureMap(self.target_x, self.target_y, self.obstacle_x, self.obstacle_y)
         #N.B. for now keep targets array intact
         #can now safely reset obstacles
-        self.obstacles = []
+        self.obstacle_x = []
+        self.obstacle_y = []
         return msg
 
 def feature_map_node():
