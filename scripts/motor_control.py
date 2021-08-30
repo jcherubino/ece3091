@@ -17,34 +17,28 @@ import gpiozero
 from ece3091.msg import MotorCmd
 
 #TODO: Choose this value
-PWM_FREQ = 1000 #hz
+PWM_FREQ = 50000 #hz
 
 #TODO: Set these pins appropriately
-PWM_PIN = 10
-LEFT_FORWARD = 11
-LEFT_REVERSE = 12
-RIGHT_FORWARD = 13
-RIGHT_REVERSE = 14
+PWM_PIN = 13
+LEFT_DIR = 4
+RIGHT_DIR = 17
 
 class MotorController(object):
     '''
-    Class to handle controlling 2 TB6612FNG motor drivers
-    to allow control of robot
+    Class to handle controlling of motors
     '''
 
-    def __init__(self, pwm_pin, left_forward_pin, left_reverse_pin,
-            right_forward_pin, right_reverse_pin):
+    def __init__(self, pwm_pin, left_dir_pin, right_dir_pin):
         '''
         Left and Right sides defined as though viewing robot from behind
         looking to front.
-        N.B. the 'forward' pins must be high when going forward and 
-        'reverse' pins should be high when going in reverse.
+        N.B. the 'dir' pins must be high when going forward and low when
+        in reverse
         '''
         self.pwm = gpiozero.PWMOutputDevice(pwm_pin, frequency=PWM_FREQ)
-        self.left_forward = gpiozero.DigitalOutputDevice(left_forward_pin)
-        self.left_reverse = gpiozero.DigitalOutputDevice(left_reverse_pin)
-        self.right_forward = gpiozero.DigitalOutputDevice(right_forward_pin)
-        self.right_reverse = gpiozero.DigitalOutputDevice(right_reverse_pin)
+        self.left_dir = gpiozero.DigitalOutputDevice(left_dir_pin)
+        self.right_dir = gpiozero.DigitalOutputDevice(right_dir_pin)
 
         #define command map
         # 0 --> stop
@@ -67,10 +61,8 @@ class MotorController(object):
         Drive robot forward at specified speed
         '''
         #set direction pins
-        self.left_forward.on()
-        self.left_reverse.off()
-        self.right_forward.on()
-        self.right_reverse.off()
+        self.left_dir.on()
+        self.right_dir.on()
         self.value = speed
 
     def reverse(self, speed):
@@ -78,47 +70,38 @@ class MotorController(object):
         Drive robot backward at specified speed
         '''
         #set direction pins
-        self.left_forward.off()
-        self.left_reverse.on()
-        self.right_forward.off()
-        self.right_reverse.on()
+        self.left_dir.off()
+        self.right_dir.off()
         self.value = speed
 
     def stop(self, *args):
         #takes *args for consistent interface
-        self.left_forward.off()
-        self.left_reverse.off()
-        self.right_forward.off()
-        self.right_reverse.off()
         self.pwm.value = 0
 
     def left(self, speed):
         #spin left motor backwards and right motor forwards
-        self.left_forward.off()
-        self.left_reverse.on()
-        self.right_forward.on()
-        self.right_reverse.off()
+        self.left_dir.off()
+        self.right_dir.on()
         self.pwm.value = speed
 
     def right(self, speed):
         #spin right motor backwards and left motor forwards
-        self.left_forward.on()
-        self.left_reverse.off()
-        self.right_forward.off()
-        self.right_reverse.on()
+        self.left_dir.on()
+        self.right_dir.off()
         self.pwm.value = speed
 
 def motor_controller_subscriber():
 
     #create motor controller instance
-    motor_controller = MotorController(PWM_PIN, LEFT_FORWARD, LEFT_REVERSE,
-        RIGHT_FORWARD, RIGHT_REVERSE)
+    motor_controller = MotorController(PWM_PIN, LEFT_DIR, RIGHT_DIR)
 
     #not anonymous. Only allowed 1 motor controller
     rospy.init_node('motor_controller', anonymous=False)
     #register callback as the motor controllers callback which will 
     #set gpio as required
     rospy.Subscriber('/actuators/motor_cmds', MotorCmd, motor_controller.callback)
+
+    rospy.loginfo('Started motor control node')
 
     #keep script alive and wait for callback to be run until
     #the node is killed

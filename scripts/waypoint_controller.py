@@ -177,6 +177,7 @@ def waypoint_node():
     rate = rospy.Rate(RATE)
     rospy.loginfo('Starting waypoint node')
     
+    #loop using waypoint controller to determine most appropriate motor command.
     while not rospy.is_shutdown():
         msg = waypoint_controller.step()
         pub.publish(msg)
