@@ -80,14 +80,14 @@ class MotorController(object):
 
     def cw(self, speed):
         #spin left motor backwards and right motor forwards
-        self.left_dir.on()
-        self.right_dir.off()
+        self.left_dir.off()
+        self.right_dir.on()
         self.pwm.value = speed
 
     def ccw(self, speed):
         #spin right motor backwards and left motor forwards
-        self.left_dir.off()
-        self.right_dir.on()
+        self.left_dir.on()
+        self.right_dir.off()
         self.pwm.value = speed
 
 def motor_controller_subscriber():
