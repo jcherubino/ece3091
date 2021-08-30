@@ -15,6 +15,7 @@ add_message_files(
    DistanceData.msg
    MotorCmd.msg
    OdometryData.msg
+   OdometryDataXY.msg
 )
 
 ## Generate services in the 'srv' folder
