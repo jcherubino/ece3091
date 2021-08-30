@@ -16,10 +16,8 @@ import rospy
 import gpiozero
 from ece3091.msg import MotorCmd
 
-#TODO: Choose this value
 PWM_FREQ = 50000 #hz
 
-#TODO: Set these pins appropriately
 PWM_PIN = 13
 LEFT_DIR = 27 
 RIGHT_DIR = 17
