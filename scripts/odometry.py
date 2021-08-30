@@ -79,6 +79,9 @@ def odometry_node():
         left_rot = dist_left/TURNING_CIRCLE_CIRCUMFERENCE*360.0
         right_rot = dist_right/TURNING_CIRCLE_CIRCUMFERENCE*360.0
         odom.orientation += int((right_rot - left_rot)/2.0)
+        #wrap odometry value to always keep within 360 degrees
+        #must abs before mod so that we only get magnitude
+        odom.orientation = math.copysign(abs(odom.orientation) % 360.0, odom.orientation)
 
         pub.publish(odom)
 
