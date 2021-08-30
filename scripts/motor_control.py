@@ -37,8 +37,8 @@ class MotorController(object):
         in reverse
         '''
         self.pwm = gpiozero.PWMOutputDevice(pwm_pin, frequency=PWM_FREQ)
-        self.left_dir = gpiozero.DigitalOutputDevice(left_dir_pin)
-        self.right_dir = gpiozero.DigitalOutputDevice(right_dir_pin)
+        self.left_dir = gpiozero.DigitalOutputDevice(left_dir_pin, active_high=False)
+        self.right_dir = gpiozero.DigitalOutputDevice(right_dir_pin, active_high=False)
 
         #define command map
         # 0 --> stop
@@ -63,7 +63,7 @@ class MotorController(object):
         #set direction pins
         self.left_dir.on()
         self.right_dir.on()
-        self.value = speed
+        self.pwm.value = speed
 
     def reverse(self, speed):
         '''
@@ -72,7 +72,7 @@ class MotorController(object):
         #set direction pins
         self.left_dir.off()
         self.right_dir.off()
-        self.value = speed
+        self.pwm.value = speed
 
     def stop(self, *args):
         #takes *args for consistent interface
