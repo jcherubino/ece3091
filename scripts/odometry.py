@@ -45,6 +45,7 @@ def handle_odom_reset(req):
     global odom
     odom.distance = 0
     odom.orientation = 0
+    rospy.loginfo('Odometry reset')
     return EmptyResponse()
 
 def odometry_node():

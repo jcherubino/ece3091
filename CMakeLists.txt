@@ -21,6 +21,7 @@ add_message_files(
  add_service_files(
    FILES
    Empty.srv
+   Waypoints.srv
 )
 
 generate_messages(DEPENDENCIES std_msgs ${PROJECT_NAME})
