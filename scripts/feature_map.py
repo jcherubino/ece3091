@@ -47,6 +47,33 @@ class FeatureMapper(object):
         self.cur_y = 0
         self.cur_orientation = 0
     
+    def transform_front(self, value):
+        '''
+        Transform value from robot local coordinate space into coordinate
+        space in axes from starting position
+        Return x, y tuple
+        '''
+        theta = math.radians(self.cur_orientation)
+        return (value*math.cos(theta), value*math.sin(theta))
+
+    def transform_left(self, value):
+        '''
+        Transform value from left of robot (at 90 degree angle to front)
+        into relative coordinate space (from starting position)
+        Returns x,y tuple
+        '''
+        phi = math.radians(90 - self.cur_orientation)
+        return (-value*math.cos(phi),value*math.sin(phi))
+
+    def transform_right(self, value):
+        '''
+        Transform value from right of robot (at 90 degree angle to front)
+        into relative coordinate space (from starting position)
+        Returns x,y tuple
+        '''
+        phi = math.radians(90 - self.cur_orientation)
+        return (value*math.cos(phi), -value*math.sin(phi))
+
     def distance_callback(self, distance_data):
         '''
         Callback from distance sensors
@@ -55,14 +82,17 @@ class FeatureMapper(object):
         #assume each detected distance value is a single point in feature map
         #must also use robot orientation to transform points into starting coordinate system
         #front
-        self.obstacle_x.append(self.cur_x + distance_data.front*math.cos(math.radians(self.cur_orientation)))
-        self.obstacle_y.append(self.cur_y + distance_data.front*math.sin(math.radians(self.cur_orientation)))
+        delta_front = self.transform_front(distance_data.front) 
+        self.obstacle_x.append(self.cur_x + delta_front[0])
+        self.obstacle_y.append(self.cur_y + delta_front[1])
         #left
-        self.obstacle_x.append(self.cur_x - distance_data.left*math.cos(math.radians(90 - self.cur_orientation)))
-        self.obstacle_y.append(self.cur_y + distance_data.left*math.sin(math.radians(90 - self.cur_orientation)))
+        delta_left = self.transform_left(distance_data.left)
+        self.obstacle_x.append(self.cur_x + delta_left[0])
+        self.obstacle_y.append(self.cur_y + delta_left[1])
         #right
-        self.obstacle_x.append(self.cur_x + distance_data.right*math.cos(math.radians(90 - self.cur_orientation)))
-        self.obstacle_y.append(self.cur_y - distance_data.right*math.sin(math.radians(90 - self.cur_orientation)))
+        delta_right = self.transform_right(distance_data.right)
+        self.obstacle_x.append(self.cur_x + delta_right[0])
+        self.obstacle_y.append(self.cur_y + delta_right[1])
 
     def odom_callback(self, odometry_data):
         '''
