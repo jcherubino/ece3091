@@ -21,7 +21,7 @@ PWM_FREQ = 50000 #hz
 
 #TODO: Set these pins appropriately
 PWM_PIN = 13
-LEFT_DIR = 4
+LEFT_DIR = 27 
 RIGHT_DIR = 17
 
 class MotorController(object):
