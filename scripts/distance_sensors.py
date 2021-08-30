@@ -17,14 +17,12 @@ import gpiozero
 from ece3091.msg import DistanceData
 
 #TODO: Change these values
-TRIG_FRONT_LEFT = 4
-TRIG_FRONT_RIGHT = 5
-TRIG_BACK_LEFT = 6
-TRIG_BACK_RIGHT = 7
-ECHO_FRONT_LEFT = 8
-ECHO_FRONT_RIGHT = 9
-ECHO_BACK_LEFT = 10
-ECHO_BACK_RIGHT = 11
+TRIG_FRONT = 4
+TRIG_LEFT = 6
+TRIG_RIGHT = 7
+ECHO_FRONT = 8
+ECHO_LEFT = 10
+ECHO_RIGHT = 11
 
 #N.B. gpiozero docs state pigpio is more accurate as it
 #uses DMA so will be better at handling precise timings
@@ -45,19 +43,17 @@ def distance_publisher():
     rate = rospy.Rate(RATE)
     rospy.loginfo('Starting distance publisher')
     
-    fl_sensor = gpiozero.DistanceSensor(ECHO_FRONT_LEFT, TRIG_FRONT_LEFT, **SENSOR_KWARGS)
-    fr_sensor = gpiozero.DistanceSensor(ECHO_FRONT_RIGHT, TRIG_FRONT_RIGHT, **SENSOR_KWARGS)
-    bl_sensor = gpiozero.DistanceSensor(ECHO_BACK_LEFT, TRIG_BACK_LEFT, **SENSOR_KWARGS)
-    br_sensor = gpiozero.DistanceSensor(ECHO_BACK_RIGHT, TRIG_BACK_RIGHT, **SENSOR_KWARGS)
+    front = gpiozero.DistanceSensor(ECHO_FRONT, TRIG_FRONT, **SENSOR_KWARGS)
+    left = gpiozero.DistanceSensor(ECHO_LEFT, TRIG_LEFT, **SENSOR_KWARGS)
+    right = gpiozero.DistanceSensor(ECHO_RIGHT, TRIG_RIGHT, **SENSOR_KWARGS)
 
     msg = DistanceData()
     while not rospy.is_shutdown():
         #add distance data to message
         #mulitply by 100 to convert to cm.
-        msg.front_left = int(fl_sensor.distance*100)
-        msg.front_right = int(fr_sensor.distance*100)
-        msg.back_left = int(bl_sensor.distance*100)
-        msg.back_right = int(br_sensor.distance*100)
+        msg.front = int(front.distance*100)
+        msg.left = int(left.distance*100)
+        msg.right = int(right.distance*100)
 
         pub.publish(msg)
         rate.sleep()
