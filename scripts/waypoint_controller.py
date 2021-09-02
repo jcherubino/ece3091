@@ -26,9 +26,10 @@ from ece3091.msg import MotorCmd, OdometryData
 from ece3091.srv import Waypoints, WaypointsResponse, Empty, EmptyResponse
 import collections #import deque object for efficient waypoint manipulation
 
-RATE = 10
-Kp = 1 #proportionality coefficient for proportional speed control when approaching waypoints
-TOLERANCE = 5 #percentage tolerance on closeness to waypoint values
+RATE = 50
+Kp = 0.5 #proportionality coefficient for proportional speed control when approaching waypoints
+TOLERANCE = 2 #percentage tolerance on closeness to waypoint values
+SPEED = 0.25
 
 class WaypointController(object):
     '''
@@ -99,7 +100,7 @@ class WaypointController(object):
         rospy.wait_for_service('reset_odometry')
         try:
             service = rospy.ServiceProxy('reset_odometry', Empty)
-            service() #call service
+            resp = service() #call service
             rospy.loginfo('Odometry reset')
         except rospy.ServiceException as e:
             #if resetting odometry fails, the waypoint controller
@@ -168,7 +169,7 @@ def waypoint_node():
 
     #create waypoint controller instance
     waypoint_controller = WaypointController()
-
+    
     sub = rospy.Subscriber('/sensors/odometry', OdometryData, waypoint_controller.odom_callback)
 
     clear_service = rospy.Service('waypoint_clear', Empty, waypoint_controller.clear)

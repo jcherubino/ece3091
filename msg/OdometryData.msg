@@ -1,2 +1,2 @@
 float32 distance
-int16 orientation
+float32 orientation
