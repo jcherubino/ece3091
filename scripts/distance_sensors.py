@@ -35,7 +35,7 @@ SENSOR_KWARGS = dict(max_distance=1.5, #pin_factory=pigpio_factory,
         partial=False)
 #try and publish data at the same speed as picam framerate
 #otherwise default to 10 Hz
-RATE = rospy.get_param('picam/framerate', 10) 
+RATE = 50
 
 def distance_publisher():
     pub = rospy.Publisher('/sensors/distances', DistanceData, queue_size=10)

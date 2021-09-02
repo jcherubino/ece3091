@@ -19,11 +19,10 @@ Last edited 30/08/21 by Josh Cherubino
 '''
 
 import rospy
-import gpiozero
 import math
 from ece3091.msg import DistanceData, FeatureMap, OdometryDataXY
 
-RATE = 10
+RATE = 50
 
 class FeatureMapper(object):
     '''
@@ -82,17 +81,20 @@ class FeatureMapper(object):
         #assume each detected distance value is a single point in feature map
         #must also use robot orientation to transform points into starting coordinate system
         #front
+
+        #distance data must be non zero or obstacles will be added on rover
         delta_front = self.transform_front(distance_data.front) 
         self.obstacle_x.append(self.cur_x + delta_front[0])
         self.obstacle_y.append(self.cur_y + delta_front[1])
         #left
-        delta_left = self.transform_left(distance_data.left)
-        self.obstacle_x.append(self.cur_x + delta_left[0])
-        self.obstacle_y.append(self.cur_y + delta_left[1])
+        #temporarily comment out while no left and right sensors.
+        #delta_left = self.transform_left(distance_data.left)
+        #self.obstacle_x.append(self.cur_x + delta_left[0])
+        #self.obstacle_y.append(self.cur_y + delta_left[1])
         #right
-        delta_right = self.transform_right(distance_data.right)
-        self.obstacle_x.append(self.cur_x + delta_right[0])
-        self.obstacle_y.append(self.cur_y + delta_right[1])
+        #delta_right = self.transform_right(distance_data.right)
+        #self.obstacle_x.append(self.cur_x + delta_right[0])
+        #self.obstacle_y.append(self.cur_y + delta_right[1])
 
     def odom_callback(self, odometry_data):
         '''
@@ -127,7 +129,6 @@ def feature_map_node():
     rate = rospy.Rate(RATE)
     rospy.loginfo('Starting feature map node')
     
-    #loop using waypoint controller to determine most appropriate motor command.
     while not rospy.is_shutdown():
         msg = mapper.pop() #get latest feature map and reset for next iteration
         pub.publish(msg)

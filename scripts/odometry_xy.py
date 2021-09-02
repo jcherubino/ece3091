@@ -23,20 +23,21 @@ import math
 from ece3091.msg import OdometryDataXY
 from ece3091.srv import Empty, EmptyResponse #empty message type for service call
 
-#TODO: finalise
-A_LEFT_PIN = 11
-B_LEFT_PIN = 12
-A_RIGHT_PIN = 13
-B_RIGHT_PIN = 14
-ENCODER_RESOLUTION = 32
-WHEEL_RADIUS = 15 #cm 
-TURNING_RADIUS = 3 #cm
-RATE = 10
+A_LEFT_PIN = 5
+B_LEFT_PIN = 6
+A_RIGHT_PIN = 23
+B_RIGHT_PIN = 24
+GEAR_RATIO  = 344.2
+ENCODER_STEPS_PER_REV = 32
+STEPS_PER_WHEEL_REV = round(GEAR_RATIO*ENCODER_STEPS_PER_REV)
+WHEEL_RADIUS = 5.3/2 #cm 
+TURNING_RADIUS = 10.5/2 #cm
+RATE = 50
 
 WHEEL_CIRCUMFERENCE = 2*math.pi*WHEEL_RADIUS
 TURNING_CIRCLE_CIRCUMFERENCE = 2*math.pi*TURNING_RADIUS
 
-odom = OdometryData()
+odom = OdometryDataXY()
 
 def handle_odom_reset(req):
     global odom
@@ -48,7 +49,7 @@ def handle_odom_reset(req):
 
 def odometry_node():
     global odom
-    pub = rospy.Publisher('/sensors/odometry_xy', OdometryData, queue_size=10)
+    pub = rospy.Publisher('/sensors/odometry_xy', OdometryDataXY, queue_size=10)
     rospy.init_node('odometry_xy__node', anonymous=False)
 
     #create service to handle resetting odometry
@@ -58,25 +59,20 @@ def odometry_node():
     rospy.loginfo('Starting odometry XY node')
     
     #create encoder instances
-    encoder_left = gpiozero.RotaryEncoder(A_LEFT_PIN, B_LEFT_PIN, max_steps=ENCODER_RESOLUTION)
-    encoder_right = gpiozero.RotaryEncoder(A_RIGHT_PIN, B_RIGHT_PIN, max_steps=ENCODER_RESOLUTION)
+    encoder_left = gpiozero.RotaryEncoder(A_LEFT_PIN, B_LEFT_PIN, max_steps=STEPS_PER_WHEEL_REV)
+    encoder_right = gpiozero.RotaryEncoder(A_RIGHT_PIN, B_RIGHT_PIN, max_steps=STEPS_PER_WHEEL_REV)
 
     while not rospy.is_shutdown():
         #calculate distance travelled for each encoder
         dist_left = encoder_left.value * WHEEL_CIRCUMFERENCE
         dist_right = encoder_right.value * WHEEL_CIRCUMFERENCE
-        #reset both encoder values to 0 to avoid having to handle wrap-around
-        #cases
-        encoder_left.value = 0
-        encoder_right.value = 0
 
         #take average of distance delta.
         distance = (dist_left + dist_right)/2.0
-        #TODO: Check assumptions and math here
         #assume robot rotates about the midpoint between wheels
         left_rot = dist_left/TURNING_CIRCLE_CIRCUMFERENCE*360.0
         right_rot = dist_right/TURNING_CIRCLE_CIRCUMFERENCE*360.0
-        odom.orientation += int((right_rot - left_rot)/2.0)
+        odom.orientation += (right_rot - left_rot)/2.0
         #wrap odometry value to always keep within 360 degrees
         #must abs before mod so that we only get magnitude
         odom.orientation = math.copysign(abs(odom.orientation) % 360.0, odom.orientation)
@@ -86,6 +82,11 @@ def odometry_node():
         odom.y += distance*math.sin(math.radians(odom.orientation))
 
         pub.publish(odom)
+
+        #reset both encoder values to 0 to avoid having to handle wrap-around
+        #cases
+        encoder_left.value = 0
+        encoder_right.value = 0
         rate.sleep()
 
 if __name__ == '__main__':
