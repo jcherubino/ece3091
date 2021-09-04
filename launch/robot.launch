@@ -1,0 +1,15 @@
+<launch>
+
+    <node pkg="ece3091" name="motor_control" type="motor_control.py" output="screen"/>
+
+    <node pkg="ece3091" name="odometry_xy" type="odometry_xy.py" output="screen"/>
+
+    <node pkg="ece3091" name="distances" type="distance_sensors.py"/>
+
+    <node pkg="ece3091" name="feature_map" type="feature_map.py"/>
+    
+    
+    <!--<node pkg="ece3091" name="path_planner" type="path_planner.py"/>-->
+        
+
+</launch>
