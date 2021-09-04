@@ -22,10 +22,13 @@ import math
 from ece3091.msg import MotorCmd, FeatureMap, OdometryDataXY
 
 RATE = 50
-Kp = 0.75
-ANGLE_TOL = 1 #tolerate +/- 1 degree of error
+Kp = 0.4
+ANGLE_TOL = 2 #tolerate +/- degree of error
 DISTANCE_TOL = 1 #tolerate +/- cm of error
-MIN_PROXIMITY = 5 #if obstacle within this radius must circumvent.
+MIN_PROXIMITY = 10 #if obstacle within this radius must circumvent.
+CIRCUMVENT_TURN = 60 #abs angle to rotate if obstacle detected
+CIRCUMVENT_DIST = 25 #distance to travel before attempting to re-orient
+CIRCUMVENT_SPEED = 0.1
 
 class PathPlanner(object):
     '''
@@ -38,8 +41,8 @@ class PathPlanner(object):
         self.x = 0
         self.y = 0
         self.orientation = 0
-        self.target_x = 0
-        self.target_y = 0
+        self.target_x = None
+        self.target_y = None
         self.obstacle_x = []
         self.obstacle_y = []
 
@@ -62,6 +65,7 @@ class PathPlanner(object):
 
         self.align_target = None #target for alignment value
         self.align_direction = None
+        self.circumvent_state = None
 
     def odom_callback(self, odom_data):
         '''
@@ -156,7 +160,7 @@ class PathPlanner(object):
         if self.align_target is None:
             #calculate alignment
             self.align_target, self.align_direction = self.calculate_align()
-            rospy.loginfo('Move {} degrees in {} direction to align.'.format(self.align_target,
+            rospy.loginfo('Move to {} orientation in {} direction to align.'.format(self.align_target,
                 self.align_direction))
 
         #once aligned within tolerance advance to APPROACH state
@@ -219,12 +223,11 @@ class PathPlanner(object):
             return MotorCmd(self.STOP, 0)
 
         #check if collision imminent. only need to check in front of us.
-        if self.obstacle_y is not None:
-            for obstacle in self.obstacle_y:
-                if obstacle < MIN_PROXIMITY:
-                    rospy.logwarn('Collision imminent. Moving to circumvent')
-                    self.state = self.CIRCUMVENT
-                    return MotorCmd(self.STOP, 0) 
+        for obstacle_dist in self.obstacle_y:
+            if obstacle_dist < MIN_PROXIMITY:
+                rospy.logwarn('Collision imminent. Moving to circumvent')
+                self.state = self.CIRCUMVENT
+                return MotorCmd(self.STOP, 0) 
 
         #check if alignment is off.
         if self.check_align() == False:
@@ -243,9 +246,40 @@ class PathPlanner(object):
         '''
         Action to take in CIRCUMVENT state
         '''
-        #move away from obstacle (in direction that will take robot closer to target given robot orientation)
-        #Once certain distance travelled, move state back to ALIGN to re-align with target
-        return MotorCmd(self.STOP, 0)
+        #check if we have just entered circumvent state
+        if self.circumvent_state is None:
+            self.circumvent_state = self.CCW #rotate state
+            self.circumvent_delta = 0 #circumvent delta
+            self.prev_orientation = self.orientation
+            return MotorCmd(self.STOP, 0) 
+
+        #if we are rotating, continue to rotate until we can't see
+        #obstacle within stop radius
+        if self.circumvent_state == self.CCW:
+            #check if we need to continue rotating
+            if abs(self.orientation - self.prev_orientation) < CIRCUMVENT_TURN:
+                return MotorCmd(self.CCW, CIRCUMVENT_SPEED) 
+            #otherwise must now move forward specified distance
+            self.circumvent_state = self.FORWARD
+            self.circumvent_delta = 0
+            self.prev_x = self.x
+            self.prev_y = self.y
+            return MotorCmd(self.STOP, 0) 
+
+        #update circumvent state to see if we have moved far enough
+        delta_x, delta_y = self.x - self.prev_x, self.y - self.prev_y
+        self.prev_x, self.prev_y = self.x, self.y
+        self.circumvent_delta += math.sqrt(delta_x**2 + delta_y **2)
+
+        #if we have moved far enough, re-align
+        if self.circumvent_delta >= CIRCUMVENT_DIST:
+            self.state = self.ALIGN
+            self.circumvent_state = None 
+            rospy.loginfo('Object circumvented. Re-aligning')
+            return MotorCmd(self.STOP, 0)
+
+        #otherwise continue in same direction
+        return MotorCmd(self.FORWARD, CIRCUMVENT_SPEED)
 
     def arrived(self):
         '''

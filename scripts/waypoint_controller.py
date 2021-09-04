@@ -27,7 +27,7 @@ from ece3091.srv import Waypoints, WaypointsResponse, Empty, EmptyResponse
 import collections #import deque object for efficient waypoint manipulation
 
 RATE = 50
-Kp = 0.5 #proportionality coefficient for proportional speed control when approaching waypoints
+Kp = 0.75 #proportionality coefficient for proportional speed control when approaching waypoints
 TOLERANCE = 2 #percentage tolerance on closeness to waypoint values
 SPEED = 0.25
 
