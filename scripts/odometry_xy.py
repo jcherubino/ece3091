@@ -37,7 +37,8 @@ RATE = 50
 WHEEL_CIRCUMFERENCE = 2*math.pi*WHEEL_RADIUS
 TURNING_CIRCLE_CIRCUMFERENCE = 2*math.pi*TURNING_RADIUS
 
-odom = OdometryDataXY()
+#start at x,y = (0,0) facing along y axis.
+odom = OdometryDataXY(0, 0, 90)
 
 def handle_odom_reset(req):
     global odom

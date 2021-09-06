@@ -14,7 +14,7 @@ Subscribes to:
     /sensors/odometry_xy
 
 Written by Josh Cherubino
-Last edited 04/09/21 by Josh Cherubino
+Last edited 06/09/21 by Josh Cherubino
 '''
 
 import rospy
@@ -26,8 +26,8 @@ Kp = 0.4
 ANGLE_TOL = 2 #tolerate +/- degree of error
 DISTANCE_TOL = 1 #tolerate +/- cm of error
 MIN_PROXIMITY = 10 #if obstacle within this radius must circumvent.
-CIRCUMVENT_TURN = 60 #abs angle to rotate if obstacle detected
-CIRCUMVENT_DIST = 25 #distance to travel before attempting to re-orient
+CIRCUMVENT_TURN = 50 #abs angle to rotate if obstacle detected
+CIRCUMVENT_DIST = 20 #distance to travel before attempting to re-orient
 CIRCUMVENT_SPEED = 0.1
 
 class PathPlanner(object):
@@ -240,7 +240,7 @@ class PathPlanner(object):
         speed_x = self.proportional_control(self.target_x, self.x)
         speed_y = self.proportional_control(self.target_y, self.y)
 
-        return MotorCmd(self.FORWARD, math.sqrt(speed_x**2 + speed_y**2))
+        return MotorCmd(self.FORWARD, min(Kp, math.sqrt(speed_x**2 + speed_y**2)))
         
     def circumvent(self):
         '''
