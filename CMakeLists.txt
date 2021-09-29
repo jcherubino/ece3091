@@ -17,6 +17,8 @@ add_message_files(
    OdometryData.msg
    OdometryDataXY.msg
    FeatureMap.msg
+   Obstacles.msg
+   Targets.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -20,14 +20,12 @@ Last edited 20/09/21 by Josh Cherubino
 
 import rospy
 import math
-from ece3091.msg import CamData, Points
+from ece3091.msg import CamData, Obstacles, Targets
 import numpy as np
 import cv2 as cv
 
-obstacles_x = []
-obstacles_y = []
-targets_x = []
-targets_y = []
+obstacles = Obstacles()
+targets = Targets()
 
 MIN_OBSTACLE_CONTOUR_AREA = 10000 #minimum pixel area that contour must exceed to be considered obstacle
 OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
@@ -36,39 +34,50 @@ HEIGHT = None
 WIDTH = None
 
 def frame_callback(cam_data):
-    global obstacles_x, obstacles_y, targets_x, targets_y
+    global obstacles, targets
     
     #convert raw data into cv object (which is actually just numpy array)
     #data is already in BGR order.
     img = np.frombuffer(cam_data.data, dtype=np.uint8).reshape(HEIGHT, WIDTH, 3)
     
     #update obstacles and targets
-    obstacles_x, obstacles_y = detect_obstacles(img)
-    targets_x, targets_y = detect_targets(img)
+    obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry = detect_obstacles(img)
+    targets.x, targets.y = detect_targets(img)
 
 def detect_obstacles(img):
-    #detects obstacles and returns array of points. Note that points are paired where
-    #the ith and i + 1 points represent the closest left and right corners of an obstacle
     blurred = cv.medianBlur(img, OBSTACLE_BLUR_KERNEL_SZ) #smooth image to only 'see' big objects 
     #apply OTSU thresholding to find large foreground objects
     _, thresholded = cv.threshold(blurred, 0, 255, cv.THRESH_BINARY|cv.THRESH_OTSU)
     #find contours. N.B. function modifies input thresholded image
     contours, _ = cv.findContours(thresholded, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    x_corner = [], y_corner = []
+    lx = []
+    ly = []
+    rx = []
+    ry = []
     for contour in contours:
         area = cv.contourArea(contour)
         if area > MIN_OBSTACLE_CONTOUR_AREA:
             #perceive object as set of points along 'bottom' of bounding rectangle
-            #of the contour
-            x, y, w, h = cv.boundingRect(contour)
-            x_corner.extend([x, x+w])
-            y_corner.extend([y+h, y+h])
-    
-    return pixel_to_relative_coords(x_corner, y_corner)
+            #of the contour. N.B. Only need to store corners.
+            rect = cv.minAreaRect(contour)
+            box = cv.boxPoints(rect)
+            #store points
+            lx.append(box[0][0]),ly.append(box[0][1])
+            rx.append(box[3][0]),ry.append(box[3][1])
 
-def detect_targets(img, x, y):
-    pass
+    lx, ly = pixel_to_relative_coords(lx, ly)
+    rx, ry = pixel_to_relative_coords(rx, ry)
+    return lx, ly, rx, ry
+
+def detect_targets(img):
+    #convert to greyscale for hough circles
+    greyscale = cvt.cvtColor(img, cv.COLOR_BGR2GRAY)
+    circles = cv.HoughCircles(greyscale, cv.HOUGH_GRADIENT, 1, 25, param1=65,
+            param2=37.5, minRadius=10, maxRadius=150)
+    #extract circle centers
+    x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
+    return pixel_to_relative_coords(x, y)
 
 def pixel_to_relative_coords(x, y):
     #convert list of x,y points in pixel-space to coordinates in 
@@ -77,8 +86,9 @@ def pixel_to_relative_coords(x, y):
     return x, y
 
 def frame_process_node():
-    obstacle_pub = rospy.Publisher('/planner/obstacles', Points, queue_size=2)
-    target_pub = rospy.Publisher('/planner/targets', Points, queue_size=2)
+    global obstacles, targets
+    obstacle_pub = rospy.Publisher('/planner/obstacles', Obstacles, queue_size=2)
+    target_pub = rospy.Publisher('/planner/targets', Targets, queue_size=2)
     rospy.init_node('frame_process_node', anonymous=False)
 
     HEIGHT = rospy.get_param('picam/height')
@@ -89,16 +99,9 @@ def frame_process_node():
     rate = rospy.Rate(RATE)
     rospy.loginfo('Starting frame process node')
     
-    obstacle_msg = Points()
-    target_msg = Points()
-
     while not rospy.is_shutdown():
-        obstacle_msg.x = obstacles_x
-        obstacle_msg.y = obstacles_y
-        obstacle_pub.publish(obstacle_msg)
-        target_msg.x = target_x
-        target_msg.y = target_y
-        target_pub.publish(target_msg)
+        obstacle_pub.publish(obstacles)
+        target_pub.publish(targets)
         rate.sleep()
 
 if __name__ == '__main__':
