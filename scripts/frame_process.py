@@ -26,6 +26,7 @@ import cv2 as cv
 
 obstacles = Obstacles()
 targets = Targets()
+output_features = False
 
 MIN_OBSTACLE_CONTOUR_AREA = 10000 #minimum pixel area that contour must exceed to be considered obstacle
 OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
@@ -40,11 +41,15 @@ def frame_callback(cam_data):
     #data is already in BGR order.
     img = np.frombuffer(cam_data.data, dtype=np.uint8).reshape(HEIGHT, WIDTH, 3)
     
+    if output_features:
+        feature_img = img.copy()
+
     #update obstacles and targets
     obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry = detect_obstacles(img)
     targets.x, targets.y = detect_targets(img)
 
 def detect_obstacles(img):
+    global output_features
     blurred = cv.medianBlur(img, OBSTACLE_BLUR_KERNEL_SZ) #smooth image to only 'see' big objects 
     #apply OTSU thresholding to find large foreground objects
     _, thresholded = cv.threshold(blurred, 0, 255, cv.THRESH_BINARY|cv.THRESH_OTSU)
@@ -66,17 +71,29 @@ def detect_obstacles(img):
             lx.append(box[0][0]),ly.append(box[0][1])
             rx.append(box[3][0]),ry.append(box[3][1])
 
+            #draw obstacle bounding box in red
+            if output_features:
+                global feature_img
+                cv.drawContours(feature_img,[box],0,(0,0,255),2)  
+
     lx, ly = pixel_to_relative_coords(lx, ly)
     rx, ry = pixel_to_relative_coords(rx, ry)
     return lx, ly, rx, ry
 
 def detect_targets(img):
+    global output_features
     #convert to greyscale for hough circles
     greyscale = cvt.cvtColor(img, cv.COLOR_BGR2GRAY)
     circles = cv.HoughCircles(greyscale, cv.HOUGH_GRADIENT, 1, 25, param1=65,
             param2=37.5, minRadius=10, maxRadius=150)
     #extract circle centers
     x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
+
+    #Draw outer circle in green
+    if output_features:
+        global feature_img
+        for i in circles[0, :]:
+            cv.circle(cimg,(i[0],i[1]),i[2],(0,255,0),2)
     return pixel_to_relative_coords(x, y)
 
 def pixel_to_relative_coords(x, y):
@@ -89,6 +106,12 @@ def frame_process_node():
     global obstacles, targets
     obstacle_pub = rospy.Publisher('/planner/obstacles', Obstacles, queue_size=2)
     target_pub = rospy.Publisher('/planner/targets', Targets, queue_size=2)
+
+    #turn on feature viewing
+    output_features = rospy.get_param('/planner/show_feature_view', False)
+    if output_features == True:
+        feature_pub = rospy.Publisher('/planner/feature_view', CamData, queue_size=2)
+
     rospy.init_node('frame_process_node', anonymous=False)
 
     HEIGHT = rospy.get_param('picam/height')
@@ -102,6 +125,8 @@ def frame_process_node():
     while not rospy.is_shutdown():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
+        if output_features:
+            feature_pub.publish(feature_img.flatten())
         rate.sleep()
 
 if __name__ == '__main__':
