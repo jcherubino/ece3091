@@ -19,14 +19,19 @@ Last edited 29/09/21 by Josh Cherubino
 
 import rospy
 import math
-from ece3091.msg import MotorCmd, Obstacles, Targets, OdometryData
+import time
+from ece3091.msg import MotorCmd, Obstacles, Targets
+from std_srvs.srv import Trigger
 
 RATE = 50
 SEARCH_SPEED = 0.2
+ALIGN_TOL = 5 #+/- degree alignment tolerance for targets
+Kp = 0.8 #proportional constant for speed control
+ARRIVE_TOL = (2, 5)
 
 class PathPlanner(object):
     '''
-    Class to plan a path given a feature map and current x y coordintes and orientation.
+    Class to plan a path given obstacles and targets in relative xy coordinates to front of robot
 
     Implements a state machine to control what type of movement the robot does
     at a particular instant
@@ -70,7 +75,7 @@ class PathPlanner(object):
             self.state = self.ALIGN
             return MotorCmd(self.STOP, 0.0)
         
-        #if no target, then keep rotating
+        #if no target, then keep rotating at constant speed
         return MotorCmd(self.CW, SEARCH_SPEED) 
 
     def align(self):
@@ -81,13 +86,53 @@ class PathPlanner(object):
             return MotorCmd(self.STOP, 0.0)
 
         #check align
-        if self.aligned():
+        target = self.select_target()
+        if self.aligned(target):
             rospy.loginfo('Aligned. Approaching')
             self.state = self.APPROACH
             return MotorCmd(self.STOP, 0.0)
         
-        #TODO: otherwise, rotate to alignment
-        return MotorCmd(self.STOP, 0.0)
+        #If we reach this point. Must continue aligning
+        align_degrees = self.calculate_align(target)
+        #if more than 90 degrees, rotate CCW
+        if align_degrees > 90.0
+            direction = self.CCW
+        else:
+            direction = self.CW
+        
+        speed = self.proportional_control(align_degrees, 90.0)
+        return MotorCmd(direction, speed)
+
+    def calculate_align(self, target):
+        '''
+        Calculate degrees alignment to a given target as (x, y) tuple
+        '''
+        #TODO: Check if this output has appropriate sign
+        return 90.0 - math.degrees(math.atan(target[1]/target[0]))
+
+    def aligned(self, target):
+        '''
+        Helper function to calculate alignment to target
+        '''
+        #robot is aligned when target at 90 degrees (i.e. infront of it)
+        if (abs(self.calculate_align(target)) - 90.0)  > ALIGN_TOL:
+            return False
+        return True
+
+    def select_target(self):
+        '''
+        Method to return the selected target the robot will navigate towards
+        given its current targets
+        '''
+        min_distance = float('inf')
+        closest_target = None
+        #Choose closest target
+        for x, y in enumerate(self.target.x, self.target.y):
+            dist = math.sqrt(x**2 + y**2)
+            if dist < min_distance:
+                min_distance = dist
+                closest_target = (x, y)
+        return closest_target
 
     def approach(self):
         #if we have an obstacle
@@ -97,19 +142,32 @@ class PathPlanner(object):
             return MotorCmd(self.STOP, 0.0)
         
         #check arrived
-        if self.arrived():
+        target = self.select_target()
+        if self.arrived(target):
             rospy.loginfo('Arrived. Collecting')
             self.state = self.COLLECT
             return MotorCmd(self.STOP, 0.0)
         
-        #check alignment has shifted
-        if !self.aligned():
+        #check alignment has not shifted
+        if !self.aligned(target):
             rospy.logwarn('Alignment lost. Re-aligning')
             self.state = self.ALIGN
             return MotorCmd(self.STOP, 0.0)
 
-        #TODO: otherwise drive in straight line
-        return MotorCmd(self.STOP, 0.0)
+        #Otherwise drive in straight line
+        #TODO: Test if just checking y distance for speed control is ok
+        #TODO: Check target of 0 behaves as expected
+        speed = self.proportional_control(target[1], 0.0)
+        return MotorCmd(self.FORWARD, speed)
+
+    def arrived(self, target):
+        '''
+        Helper function to decide if we have arrived at a target
+        '''
+        #TODO: Tune arrived parameters.
+        if abs(target[0]) < ARRIVE_TOL[0] and abs(target[1]) < ARRIVE_TOL[1]:
+            return True
+        return False
 
     def circumvent(self):
         if !self.collision_imminent():
@@ -117,20 +175,28 @@ class PathPlanner(object):
             self.state = self.SEARCH
             return MotorCmd(self.STOP, 0.0)
         
-        #TODO: Avoid...
+        #TODO: Implement collision avoidance (consider targets direction when 
+        #deciding how to avoid collision?)
         return MotorCmd(self.STOP, 0.0)        
 
     def collect(self):
         #Call collect service
-        #Move to search state
-        #TODO: Handle blocking service call.
-        self.state = self.SEARCH
+        rospy.wait_for_service('/actuator/collect')
+        try:
+            proxy = rospy.ServiceProxy('/actuator/collect', Trigger)
+            resp = proxy()
+            rospy.loginfo(resp.message)
+            #Move to search state
+            self.state = self.SEARCH
+        except rospy.ServiceException as e:
+            rospy.logerror(str(e))
+            time.sleep(0.2)
+        
+        #if service call fails remain in collect state to try again
         return MotorCmd(self.STOP, 0.0)        
 
     def collision_imminent(self):
-        pass
-
-    def aligned(self):
+        #TODO: Implement collision detection
         pass
 
     def obstacle_callback(self, obstacles):

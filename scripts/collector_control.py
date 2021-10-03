@@ -61,7 +61,7 @@ def handle_collect(req):
 def collector_node():
     rospy.init_node('collector_node', anonymous=False)
 
-    service = rospy.Service('collect', Trigger, handle_collect)
+    service = rospy.Service('/actuator/collect', Trigger, handle_collect)
 
     rospy.loginfo('Starting collector node')
     rospy.spin()
