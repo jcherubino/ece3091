@@ -28,6 +28,12 @@ SEARCH_SPEED = 0.2
 ALIGN_TOL = 5 #+/- degree alignment tolerance for targets
 Kp = 0.8 #proportional constant for speed control
 ARRIVE_TOL = (2, 5)
+MIN_OBSTACLE_DISTANCE = 5 #object can't be closer than 5cm
+CIRCUMVENT_X_DIST = 1.5
+CIRCUMVENT_SPEED = 0.4
+CIRCUMVENT_Y_DIST = 1.5
+#TODO: Update robot width
+ROBOT_X_WIDTH = 10
 
 class PathPlanner(object):
     '''
@@ -63,13 +69,10 @@ class PathPlanner(object):
         '''
         Search state.
         '''
-        #if we have an obstacle
-        if self.collision_imminent():
-            self.state = self.CIRCUMVENT
-            return MotorCmd(self.STOP, 0.0)
+        #Assume collision can't occur when we rotate on spot so never check
 
         #if we have a target
-        if targets is not None and targets.x:
+        if self.targets is not None and self.targets.x:
             #move to align state
             rospy.loginfo('Target found. Aligning')
             self.state = self.ALIGN
@@ -79,12 +82,7 @@ class PathPlanner(object):
         return MotorCmd(self.CW, SEARCH_SPEED) 
 
     def align(self):
-        #if we have an obstacle
-        if self.collision_imminent():
-            rospy.logwarn('Collision imminent. Circumventing')
-            self.state = self.CIRCUMVENT
-            return MotorCmd(self.STOP, 0.0)
-
+        #Assume collision can't occur when we rotate on spot so never check
         #check align
         target = self.select_target()
         if self.aligned(target):
@@ -95,7 +93,7 @@ class PathPlanner(object):
         #If we reach this point. Must continue aligning
         align_degrees = self.calculate_align(target)
         #if more than 90 degrees, rotate CCW
-        if align_degrees > 90.0
+        if align_degrees > 90.0:
             direction = self.CCW
         else:
             direction = self.CW
@@ -128,7 +126,7 @@ class PathPlanner(object):
         closest_target = None
         #Choose closest target
         for x, y in enumerate(self.target.x, self.target.y):
-            dist = math.sqrt(x**2 + y**2)
+            dist = self.distance(x, y)
             if dist < min_distance:
                 min_distance = dist
                 closest_target = (x, y)
@@ -149,7 +147,7 @@ class PathPlanner(object):
             return MotorCmd(self.STOP, 0.0)
         
         #check alignment has not shifted
-        if !self.aligned(target):
+        if not self.aligned(target):
             rospy.logwarn('Alignment lost. Re-aligning')
             self.state = self.ALIGN
             return MotorCmd(self.STOP, 0.0)
@@ -170,14 +168,87 @@ class PathPlanner(object):
         return False
 
     def circumvent(self):
-        if !self.collision_imminent():
+        #Avoid obstacles. Should only be in this state when we are either
+        #approaching a target or circumventing another obstacle already.
+        if not self.collision_imminent():
             rospy.loginfo('Object avoided. Searching')
             self.state = self.SEARCH
             return MotorCmd(self.STOP, 0.0)
         
-        #TODO: Implement collision avoidance (consider targets direction when 
-        #deciding how to avoid collision?)
-        return MotorCmd(self.STOP, 0.0)        
+        critical_x, critical_y = [], []
+        directions = []
+        LEFT, RIGHT = 0, 1
+        for lx, ly, rx, ry in enumerate(obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry):
+            dist_left = self.distance(lx, ly)  
+            dist_right = self.distance(rx, ry)  
+            #left corner closer. ignore right
+            if dist_left <= MIN_OBSTACLE_DISTANCE and dist_left < dist_right:
+                critical_x.append(lx)
+                critical_y.append(ly)
+                directions.append(LEFT)
+            #right closer. ignore left
+            elif dist_right <= MIN_OBSTACLE_DISTANCE and dist_right <= dist_left:
+                critical_x.append(rx)
+                critical_y.append(ry)
+                directions.append(RIGHT)
+        
+        #if only 1 obstacle in range, simplify process
+        if len(critical_x) == 1:
+            #if off to left side, see if we are aligned to go past edge of 
+            #obstacle
+            if directions[0] == LEFT:
+                x_target = critical_x[0] - CIRCUMVENT_X_DIST
+            #same for right
+            else:
+                x_target = critical_x[0] + CIRCUMVENT_X_DIST
+
+            y_target = critical_y[0] - CIRCUMVENT_Y_DIST
+
+        else:
+            #if there are multiple obstacles we must choose where to drive between
+            critical_x = np.array(critical_x)
+            critical_y = np.array(critical_y)
+            #assume we want to keep driving where we were facing
+            #therefore we should find the obstacles most infront of robot, and see
+            #if gap is wide enough to drive through. Take abs because we want to 
+            #sort values on how close they are to 0. don't care about sign.
+            indices = np.argsort(np.abs(critical_x))
+            sorted_x = critical_x[indices]
+            sorted_y = critical_y[indices]
+            sorted_directions = np.array(directions, dtype=np.bool)[indices]
+
+            #then, take difference between obstacles where we are looking at opposite corners
+            #We know this indicates we could drive through the obstacles
+            x_left, y_left = sorted_x[sorted_directions == LEFT],sorted_y[sorted_directions == LEFT]
+            x_right, y_right = sorted_x[sorted_directions == RIGHT], sorted_y[sorted_directions == RIGHT]
+            gaps = np.abs(x_right - x_left)   
+            x_target, y_target = None, None
+            for i,gap in enumerate(gaps):
+                #as soon as we have a gap big enough, try and drive through that.
+                if gap >= ROBOT_X_WIDTH:
+                    #take middle of gap as target
+                    x_target = (x_right[i] + x_left[i])/2
+                    y_target = (y_right[i] + y_left[i])/2
+                    break
+
+            #No gaps, so must drive around furthest obstacle - just choose right direction.
+            if x_target is None:
+                x_target = x_right[-1] + CIRCUMVENT_X_DIST
+                y_target = y_right[-1] - CIRCUMVENT_Y_DIST
+
+        #then check alignment.
+        if not aligned((x_target, y_target)):
+            #must rotate 
+            align_degrees = self.calculate_align((x_target, y_target))
+            if align_degrees > 90.0:
+                direction = self.CCW
+            else:
+                direction = self.CW
+            speed = self.proportional_control(align_degrees, 90.0)
+            return MotorCmd(direction, speed)
+        #otherwise we are aligned, so just drive forward towards edge of target
+        else:
+            return MotorCmd(self.FORWARD, CIRCUMVENT_SPEED)
 
     def collect(self):
         #Call collect service
@@ -196,8 +267,22 @@ class PathPlanner(object):
         return MotorCmd(self.STOP, 0.0)        
 
     def collision_imminent(self):
-        #TODO: Implement collision detection
-        pass
+        '''
+        Detect of obstacle collision is imminent
+        '''
+        #object base is between (lx, ly) and (rx, ry)
+        for lx, ly, rx, ry in enumerate(obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry):
+            #calculate distance of extremities. If any is too close, don't need to check any further
+            if self.distance(lx, ly) <= MIN_OBSTACLE_DISTANCE or self.distance(rx, ry) <= MIN_OBSTACLE_DISTANCE:
+                return True
+        return False
+    
+    @staticmethod
+    def distance(x, y):
+        '''
+        Helper static method to calculate distance to x, y coordinate
+        '''
+        return math.sqrt(x**2 + y**2)
 
     def obstacle_callback(self, obstacles):
         '''
