@@ -33,6 +33,9 @@ OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
 RATE = 20
 HEIGHT = None
 WIDTH = None
+CAM_HEIGHT = 16.9 #height of camera above ground
+CAM_ANGLE_X = 62.2 #degrees
+CAM_ANGLE_Y = 48.8 #degrees
 
 def frame_callback(cam_data):
     global obstacles, targets
@@ -99,8 +102,10 @@ def detect_targets(img):
 def pixel_to_relative_coords(x, y):
     #convert list of x,y points in pixel-space to coordinates in 
     #relative position to robot
-    #TODO: Do transform
-    return x, y
+    #https://docs.google.com/document/d/1sCGtqg6PN32aOoAip6fPdeA9rgEFPXTpvX24FOmiZdM/edit
+    y_dist = CAM_HEIGHT*np.tan(np.radians(60) + np.array(y)*np.radians(CAM_ANGLE_Y/HEIGHT))
+    x_dist = y_dist*np.tan(np.array(x)*np.radians(CAM_ANGLE_X/WIDTH))
+    return x_dist.tolist(), y_dist.tolist()
 
 def frame_process_node():
     global obstacles, targets
