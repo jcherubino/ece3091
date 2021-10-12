@@ -75,15 +75,15 @@ def detect_obstacles(img):
             #store points
             lx.append(box[1][0]),ly.append(box[1][1])
             rx.append(box[0][0]),ry.append(box[0][1])
-
+            
             #draw obstacle bounding box in red
             if output_features:
                 global feature_img
                 box = np.int0(box)
                 cv.drawContours(feature_img,[box],0,(0,0,255),2)  
 
-    #lx, ly = pixel_to_relative_coords(lx, ly)
-    #rx, ry = pixel_to_relative_coords(rx, ry)
+    lx, ly = pixel_to_relative_coords(lx, ly)
+    rx, ry = pixel_to_relative_coords(rx, ry)
     return lx, ly, rx, ry
 
 def detect_targets(img):
@@ -109,8 +109,11 @@ def pixel_to_relative_coords(x, y):
     #convert list of x,y points in pixel-space to coordinates in 
     #relative position to robot
     #https://docs.google.com/document/d/1sCGtqg6PN32aOoAip6fPdeA9rgEFPXTpvX24FOmiZdM/edit
-    y_dist = CAM_HEIGHT*np.tan(np.radians(60) + np.array(y)*np.radians(CAM_ANGLE_Y/HEIGHT))
-    x_dist = y_dist*np.tan(np.array(x)*np.radians(CAM_ANGLE_X/WIDTH))
+    #shift centre of frame to be (0,0) and invert y to be postiive is up
+    x_t = np.array(x) - WIDTH/2
+    y_t = -(np.array(x) - HEIGHT/2) 
+    y_dist = CAM_HEIGHT*np.tan(np.radians(60) + np.radians(y_t/HEIGHT*CAM_ANGLE_Y))
+    x_dist = y_dist*np.tan(np.radians(x_t/WIDTH*CAM_ANGLE_X))
     return x_dist.tolist(), y_dist.tolist()
 
 def frame_process_node():
@@ -131,10 +134,8 @@ def frame_process_node():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
         if output_features:
-            if frame_count > 0 and frame_count % 25 == 0:
+            if frame_count > 0 and frame_count % 50 == 0:
                 #save frame for debugging
-               cv.circle(feature_img,(10,10),10,(255,0,0),5)
-               cv.circle(feature_img,(630,470),10,(0,0,255),5)
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
             frame_count += 1
         rate.sleep()
