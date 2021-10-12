@@ -73,8 +73,13 @@ def detect_obstacles(img):
             rect = cv.minAreaRect(contour)
             box = cv.boxPoints(rect)
             #store points
-            lx.append(box[1][0]),ly.append(box[1][1])
-            rx.append(box[0][0]),ry.append(box[0][1])
+            row_indices = np.argsort(box[:,1])[2:]
+            col_indices = np.argsort(box[row_indices,0])
+
+            lx.append(box[row_indices][col_indices[0]][0])
+            ly.append(box[row_indices][col_indices[0]][1])
+            rx.append(box[row_indices][col_indices[1]][0])
+            ry.append(box[row_indices][col_indices[1]][1])
             
             #draw obstacle bounding box in red
             if output_features:
@@ -82,15 +87,18 @@ def detect_obstacles(img):
                 box = np.int0(box)
                 cv.drawContours(feature_img,[box],0,(0,0,255),2)  
 
+                cv.circle(feature_img,(lx[0], ly[0]), 10,(255,0,0),2)
+                cv.circle(feature_img,(rx[0], ry[0]), 10,(255,0,0),2)
+
+    rospy.loginfo('lx: {} ly: {} rx: {} ry: {}'.format(lx, ly, rx, ry))
     lx, ly = pixel_to_relative_coords(lx, ly)
     rx, ry = pixel_to_relative_coords(rx, ry)
     return lx, ly, rx, ry
 
 def detect_targets(img):
     global output_features
-    #convert to greyscale for hough circles
-    circles = cv.HoughCircles(img, cv.HOUGH_GRADIENT, 1, 25, param1=65,
-            param2=37.5, minRadius=10, maxRadius=150)
+    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,25,
+            param1=50,param2=30,minRadius=50,maxRadius=150)
     #extract circle centers
     if circles is not None:
         x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
@@ -103,7 +111,8 @@ def detect_targets(img):
         for i in circles[0, :]:
             cv.circle(feature_img,(i[0],i[1]),i[2],(0,255,0),2)
     #return pixel_to_relative_coords(x, y)
-    return x,y
+    return [], []
+    #return x,y
 
 def pixel_to_relative_coords(x, y):
     #convert list of x,y points in pixel-space to coordinates in 
@@ -111,7 +120,7 @@ def pixel_to_relative_coords(x, y):
     #https://docs.google.com/document/d/1sCGtqg6PN32aOoAip6fPdeA9rgEFPXTpvX24FOmiZdM/edit
     #shift centre of frame to be (0,0) and invert y to be postiive is up
     x_t = np.array(x) - WIDTH/2
-    y_t = -(np.array(x) - HEIGHT/2) 
+    y_t = -(np.array(y) - HEIGHT/2) 
     y_dist = CAM_HEIGHT*np.tan(np.radians(60) + np.radians(y_t/HEIGHT*CAM_ANGLE_Y))
     x_dist = y_dist*np.tan(np.radians(x_t/WIDTH*CAM_ANGLE_X))
     return x_dist.tolist(), y_dist.tolist()
