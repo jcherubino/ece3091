@@ -90,7 +90,7 @@ def detect_obstacles(img):
                 cv.circle(feature_img,(lx[0], ly[0]), 10,(255,0,0),2)
                 cv.circle(feature_img,(rx[0], ry[0]), 10,(255,0,0),2)
 
-    rospy.loginfo('lx: {} ly: {} rx: {} ry: {}'.format(lx, ly, rx, ry))
+    rospy.logdebug('Obstacles: lx: {} ly: {} rx: {} ry: {}'.format(lx, ly, rx, ry))
     lx, ly = pixel_to_relative_coords(lx, ly)
     rx, ry = pixel_to_relative_coords(rx, ry)
     return lx, ly, rx, ry
@@ -98,7 +98,7 @@ def detect_obstacles(img):
 def detect_targets(img):
     global output_features
     circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,25,
-            param1=50,param2=30,minRadius=50,maxRadius=150)
+            param1=65,param2=37.5,minRadius=15,maxRadius=80)
     #extract circle centers
     if circles is not None:
         x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
@@ -110,9 +110,9 @@ def detect_targets(img):
         global feature_img
         for i in circles[0, :]:
             cv.circle(feature_img,(i[0],i[1]),i[2],(0,255,0),2)
-    #return pixel_to_relative_coords(x, y)
-    return [], []
-    #return x,y
+            cv.circle(feature_img, (i[0],i[1]), 2, (0, 0, 255), 2)
+    rospy.logdebug('Target centers: x:  {} y: {}'.format(x, y))
+    return pixel_to_relative_coords(x, y)
 
 def pixel_to_relative_coords(x, y):
     #convert list of x,y points in pixel-space to coordinates in 
@@ -130,7 +130,7 @@ def frame_process_node():
     obstacle_pub = rospy.Publisher('/planner/obstacles', Obstacles, queue_size=2)
     target_pub = rospy.Publisher('/planner/targets', Targets, queue_size=2)
 
-    rospy.init_node('frame_process_node', anonymous=False)
+    rospy.init_node('frame_process_node', anonymous=False, log_level=rospy.INFO)
 
     cam_sub = rospy.Subscriber('/sensors/picam', CamData, frame_callback)
 
@@ -143,7 +143,7 @@ def frame_process_node():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
         if output_features:
-            if frame_count > 0 and frame_count % 50 == 0:
+            if frame_count > 0 and frame_count % 25 == 0:
                 #save frame for debugging
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
             frame_count += 1
