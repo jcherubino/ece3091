@@ -25,16 +25,18 @@ from ece3091.msg import MotorCmd, Obstacles, Targets
 
 RATE = rospy.get_param('/picam/framerate')
 SEARCH_SPEED = 1
-ALIGN_SPEED = 0.4
+ALIGN_SPEED = 1
 APPROACH_SPEED = 1
-COLLECT_SPEED = 0.7
-CIRCUMVENT_SPEED = 0.4
+COLLECT_SPEED = 1
+CIRCUMVENT_SPEED = 1
 
+SEARCH_TURN_LOOPS = 2 #how many loops to turn for in zig-zag search pattern
+SEARCH_TURN_FREQ = 12 #how often to turn in zig zag
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
 MIN_OBSTACLE_DISTANCE = 16 #object can't be closer than this 
-COLLECT_LOOPS = 90 #how many times to 'step' before leaving collect state
-SEARCH_WAIT_LOOPS = 10 #how many loops to wait after entering search in case we just
+COLLECT_LOOPS = 25 #how many times to 'step' before leaving collect state
+SEARCH_WAIT_LOOPS = 5 #how many loops to wait after entering search in case we just
 #lost reading for a short amount of time
 
 class PathPlanner(object):
@@ -49,7 +51,7 @@ class PathPlanner(object):
         self.obstacles = None
         self.collect_idx = None
         self.search_idx = None
-        self.choice = None
+        self.search_last_turn = 0
 
         #states for state machine
         self.SEARCH = 0 #no targets. search arena for possible targets
@@ -70,6 +72,8 @@ class PathPlanner(object):
         self.CW = 3
         self.CCW = 4
 
+        self.search_dir = self.CCW
+
     def search(self):
         '''
         Search state.
@@ -78,7 +82,7 @@ class PathPlanner(object):
             rospy.logwarn('Collision imminent. Circumventing')
             self.state = self.CIRCUMVENT
             self.search_idx = None
-            self.choice = None
+            self.search_last_turn = 0
             return MotorCmd(self.STOP, 0.0)
 
         if self.search_idx is None:
@@ -91,7 +95,7 @@ class PathPlanner(object):
                 self.targets.y))
             self.state = self.ALIGN
             self.search_idx = None
-            self.choice = None
+            self.search_last_turn = 0
             return MotorCmd(self.STOP, 0.0)
         
         #check if we have to keep waiting
@@ -99,8 +103,32 @@ class PathPlanner(object):
             self.search_idx += 1
             return MotorCmd(self.STOP, 0.0)
 
-        #otherwise just drive forward. If we are going to hit obstacle collision
-        #detection will rotate us
+        '''
+        #drive in zig-zag
+        self.search_idx += 1
+        rospy.logdebug('Search index: {}'.format(self.search_idx))
+        #change direction and turn this way for 1 step
+        if self.search_idx % SEARCH_TURN_FREQ == 0:
+            #toggle direction
+            self.search_dir = self.CCW if self.search_dir == self.CW else self.CW
+            self.search_last_turn = self.search_idx
+            return MotorCmd(self.search_dir, SEARCH_SPEED)
+            
+        #first time we are zigging - in this case turn half the distance 
+        if self.search_last_turn == SEARCH_TURN_FREQ:
+            #keep turning for multiple steps to make larger zig zags
+            if self.search_last_turn + SEARCH_TURN_LOOPS > self.search_idx:
+                rospy.logdebug('zigging half distance')
+                return MotorCmd(self.search_dir, SEARCH_SPEED)
+
+        #otherwise, to make zag put us in opposite direction to zig, we
+        #have to turn for twice as long
+        if self.search_last_turn + 2*SEARCH_TURN_LOOPS > self.search_idx:
+            rospy.logdebug('zigging')
+            return MotorCmd(self.search_dir, SEARCH_SPEED)
+        
+        rospy.logdebug('Searching forward')
+        '''
         return MotorCmd(self.FORWARD, SEARCH_SPEED)
 
     def align(self):
@@ -197,6 +225,9 @@ class PathPlanner(object):
         if not self.collision_imminent():
             rospy.loginfo('Object avoided. Searching')
             self.state = self.SEARCH
+            #invert search dir so next time we zig its in opposite direction
+            #will avoid getting stuck in infinite loop with object hopefully
+            #self.search_dir = self.CCW if self.search_dir == self.CW else self.CW
             return MotorCmd(self.STOP, 0.0)
         
         #just turn until we can't see the points anymore
