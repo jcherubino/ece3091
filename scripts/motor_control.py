@@ -19,8 +19,11 @@ from ece3091.msg import MotorCmd
 PWM_FREQ = 50000 #hz
 
 PWM_PIN = 13
-LEFT_DIR = 27 
-RIGHT_DIR = 17
+#LEFT_DIR = 27 
+#RIGHT_DIR = 17
+
+LEFT_DIR = 17
+RIGHT_DIR = 27
 
 class MotorController(object):
     '''

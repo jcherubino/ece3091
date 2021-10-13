@@ -87,8 +87,8 @@ def detect_obstacles(img):
                 box = np.int0(box)
                 cv.drawContours(feature_img,[box],0,(0,0,255),2)  
 
-                cv.circle(feature_img,(lx[0], ly[0]), 10,(255,0,0),2)
-                cv.circle(feature_img,(rx[0], ry[0]), 10,(255,0,0),2)
+                cv.circle(feature_img,(lx[-1], ly[-1]), 10,(255,0,0),2)
+                cv.circle(feature_img,(rx[-1], ry[-1]), 10,(255,0,0),2)
 
     rospy.logdebug('Obstacles: lx: {} ly: {} rx: {} ry: {}'.format(lx, ly, rx, ry))
     lx, ly = pixel_to_relative_coords(lx, ly)
@@ -143,7 +143,7 @@ def frame_process_node():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
         if output_features:
-            if frame_count > 0 and frame_count % 25 == 0:
+            if frame_count > 0 and frame_count % 100 == 0:
                 #save frame for debugging
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
             frame_count += 1
