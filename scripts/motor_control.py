@@ -38,8 +38,8 @@ class MotorController(object):
         in reverse
         '''
         self.pwm = gpiozero.PWMOutputDevice(pwm_pin, frequency=PWM_FREQ)
-        self.left_dir = gpiozero.DigitalOutputDevice(left_dir_pin, active_high=True)
-        self.right_dir = gpiozero.DigitalOutputDevice(right_dir_pin, active_high=True)
+        self.left_dir = gpiozero.DigitalOutputDevice(left_dir_pin, active_high=False)
+        self.right_dir = gpiozero.DigitalOutputDevice(right_dir_pin, active_high=False)
 
         #define command map
         # 0 --> stop
