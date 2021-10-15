@@ -1,8 +1,6 @@
 <launch>
     <node pkg="ece3091" name="picam_publisher" type="picam_publisher.py" output="screen"/>
 
-    <node pkg="ece3091" name="frame_processor" type="frame_process.py" output="screen"/>
-
     <!---<node pkg="ece3091" name="path_planner" type="path_planner.py"/>-->
 
     <node pkg="ece3091" name="motor_control" type="motor_control.py" output="screen"/>
