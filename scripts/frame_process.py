@@ -31,22 +31,11 @@ OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
 RATE = rospy.get_param('picam/framerate')
 HEIGHT = rospy.get_param('picam/height')
 WIDTH = rospy.get_param('picam/width')
-SAVE_OUTPUT = False
+output_features = True
 feature_img = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
 CAM_HEIGHT = 16.9 #height of camera above ground
 CAM_ANGLE_X = 62.2 #degrees
 CAM_ANGLE_Y = 48.8 #degrees
-
-LOWHUE = 0
-LOWSAT = 100
-LOWVAL = 100
-HIGHHUE = 190
-HIGHSAT = 140
-HIGHVAL = 199
-COLOR_LOW = np.array([LOWHUE,LOWSAT,LOWVAL])
-COLOR_HIGH = np.array([HIGHHUE,HIGHSAT,HIGHVAL])
-BIG_KERNEL = cv.getStructuringElement(cv.MORPH_RECT, (100, 100))
-LITTLE_KERNEL = cv.getStructuringElement(cv.MORPH_RECT, (20, 20))
 
 def frame_callback(cam_data):
     global obstacles, targets, feature_img
@@ -55,15 +44,16 @@ def frame_callback(cam_data):
     #data is already in BGR order.
     img = np.frombuffer(cam_data.data, dtype=np.uint8).reshape(HEIGHT, WIDTH, 3)
     
-    if SAVE_OUTPUT:
+    if output_features:
         feature_img = img.copy()
 
     #update obstacles and targets
+    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry = detect_obstacles(img)
     targets.x, targets.y = detect_targets(img)
 
 def detect_obstacles(img):
-    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    global output_features
     blurred = cv.medianBlur(img, OBSTACLE_BLUR_KERNEL_SZ) #smooth image to only 'see' big objects 
     #apply OTSU thresholding to find large foreground objects
     _, thresholded = cv.threshold(blurred, 0, 255, cv.THRESH_BINARY|cv.THRESH_OTSU)
@@ -92,7 +82,7 @@ def detect_obstacles(img):
             ry.append(box[row_indices][col_indices[1]][1])
             
             #draw obstacle bounding box in red
-            if SAVE_OUTPUT:
+            if output_features:
                 global feature_img
                 box = np.int0(box)
                 cv.drawContours(feature_img,[box],0,(0,0,255),2)  
@@ -106,25 +96,9 @@ def detect_obstacles(img):
     return lx, ly, rx, ry
 
 def detect_targets(img):
-
-    blurred = cv.medianBlur(img, 5)
-    # Convert the frame to HSV colour model.
-    hsv = cv.cvtColor(blurred, cv.COLOR_BGR2HSV)   
-    # HSV values to define a colour range.
-    mask = cv.inRange(hsv, COLOR_LOW, COLOR_HIGH)
-
-    mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, LITTLE_KERNEL)
-    mask = cv.morphologyEx(mask, cv.MORPH_OPEN, BIG_KERNEL)
-    # Put mask over top of the original image.
-    masked = cv.bitwise_and(img, img, mask = mask)
-
-    #gray scale image
-    gray = cv.cvtColor(masked,cv.COLOR_BGR2GRAY)
-
-    #find circles
-    circles = cv.HoughCircles(gray,cv.HOUGH_GRADIENT,1,25,
-                param1=65,param2=37.5,minRadius=15,maxRadius=80)
-
+    global output_features
+    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,25,
+            param1=65,param2=37.5,minRadius=15,maxRadius=80)
     #extract circle centers
     if circles is not None:
         x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
@@ -132,7 +106,7 @@ def detect_targets(img):
         x, y, = [], []
 
     #Draw outer circle in green
-    if SAVE_OUTPUT and circles is not None:
+    if output_features and circles is not None:
         global feature_img
         for i in circles[0, :]:
             cv.circle(feature_img,(i[0],i[1]),i[2],(0,255,0),2)
@@ -168,8 +142,8 @@ def frame_process_node():
     while not rospy.is_shutdown():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
-        if SAVE_OUTPUT:
-            if frame_count > 0 and frame_count % 50 == 0:
+        if output_features:
+            if frame_count > 0 and frame_count % 100 == 0:
                 #save frame for debugging
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
             frame_count += 1
