@@ -24,7 +24,8 @@ from ece3091.msg import Obstacles, Targets
 #picam resolution. N.B. horizontal resolution must be multiple of 32 and vertical multiple of 16
 HEIGHT = 480
 WIDTH = 640
-RATE = 5 #Hz rate node spins at 
+RATE = 10 #Hz rate node spins at 
+rospy.set_param('/rate', RATE)
 
 MIN_OBSTACLE_CONTOUR_AREA = 10000 #minimum pixel area that contour must exceed to be considered obstacle
 OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
@@ -37,19 +38,18 @@ CAM_ANGLE_Y = 48.8 #degrees
 LOWHUE = 0
 LOWSAT = 100
 LOWVAL = 100
-HIGHHUE = 190
-HIGHSAT = 140
-HIGHVAL = 199
+HIGHHUE = 180
+HIGHSAT = 180
+HIGHVAL = 165
 COLOR_LOW = np.array([LOWHUE,LOWSAT,LOWVAL])
 COLOR_HIGH = np.array([HIGHHUE,HIGHSAT,HIGHVAL])
-BIG_KERNEL = cv.getStructuringElement(cv.MORPH_RECT, (100, 100))
-LITTLE_KERNEL = cv.getStructuringElement(cv.MORPH_RECT, (20, 20))
+KERNEL = cv.getStructuringElement(cv.MORPH_ELLIPSE, (18, 18))
 
 #set values as rosparams so they can be globally accessed in ROS network
 #rospy.set_param('picam', {'width': RESOLUTION[0], 'height': RESOLUTION[1],
 #                'framerate': RATE})
 
-camera = picamera.PiCamera(resolution=(WIDTH, HEIGHT), framerate=30)
+camera = picamera.PiCamera(resolution=(WIDTH, HEIGHT), framerate=90)
 camera.rotation = 90
 camera.start_preview()
 
@@ -97,15 +97,13 @@ def detect_obstacles(img):
     return lx, ly, rx, ry
 
 def detect_targets(img):
-
-    blurred = cv.medianBlur(img, 5)
     # Convert the frame to HSV colour model.
-    hsv = cv.cvtColor(blurred, cv.COLOR_BGR2HSV)   
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)   
     # HSV values to define a colour range.
     mask = cv.inRange(hsv, COLOR_LOW, COLOR_HIGH)
 
-    mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, LITTLE_KERNEL)
-    mask = cv.morphologyEx(mask, cv.MORPH_OPEN, BIG_KERNEL)
+    mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, KERNEL)
+    mask = cv.morphologyEx(mask, cv.MORPH_OPEN, KERNEL)
     # Put mask over top of the original image.
     masked = cv.bitwise_and(img, img, mask = mask)
 
@@ -113,8 +111,8 @@ def detect_targets(img):
     gray = cv.cvtColor(masked,cv.COLOR_BGR2GRAY)
 
     #find circles
-    circles = cv.HoughCircles(gray,cv.HOUGH_GRADIENT,1,25,
-                param1=65,param2=37.5,minRadius=15,maxRadius=80)
+    circles = cv.HoughCircles(gray,cv.HOUGH_GRADIENT,1,20,
+                param1=50,param2=30,minRadius=5,maxRadius=500)
 
     #extract circle centers
     if circles is not None:
@@ -143,6 +141,7 @@ def pixel_to_relative_coords(x, y):
     return x_dist.tolist(), y_dist.tolist()
 
 def picam_publisher():
+    global feature_img
     obstacle_pub = rospy.Publisher('/planner/obstacles', Obstacles, queue_size=2)
     target_pub = rospy.Publisher('/planner/targets', Targets, queue_size=2)
     #only ever want 1 camera node running so make it non anonymous
@@ -155,27 +154,31 @@ def picam_publisher():
     rospy.on_shutdown(close)
     
     frame_count = 0
-    obstacles = Obstacles()
-    targets = Targets()
 
     while not rospy.is_shutdown():
+        obstacles = Obstacles()
+        targets = Targets()
         img = np.empty((HEIGHT*WIDTH*3), dtype=np.uint8)
         #capture to bgr format for opencv compat
         camera.capture(img, format='bgr') 
         #reshape into appropriate form
         img = img.reshape((HEIGHT, WIDTH, 3))
+        if SAVE_OUTPUT:
+            feature_img = img.copy()
         #update obstacles and targets
         obstacles.lx, obstacles.ly, obstacles.rx, obstacles.ry = detect_obstacles(img)
-        targets.x, targets.y = detect_targets(img)
+        if frame_count % 2 == 0:
+            targets.x, targets.y = detect_targets(img)
 
         #publish new data
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
 
         if SAVE_OUTPUT:
-            if frame_count > 0 and frame_count % 50 == 0:
+            if frame_count > 0 and frame_count % 10 == 0:
                 #save frame for debugging
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
+               cv.imwrite('/home/pi/raw_frames/{}.bmp'.format(frame_count), img)
             frame_count += 1
         rate.sleep() #wait to run at specified framerate
 

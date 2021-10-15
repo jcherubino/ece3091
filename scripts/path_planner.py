@@ -23,20 +23,20 @@ import random
 import time
 from ece3091.msg import MotorCmd, Obstacles, Targets
 
-RATE = rospy.get_param('/picam/framerate')
-SEARCH_SPEED = 1
-ALIGN_SPEED = 0.3
-APPROACH_SPEED = 0.9
+RATE = rospy.get_param('/rate') - 1
+SEARCH_SPEED = 0.9
+ALIGN_SPEED = 0.1
+APPROACH_SPEED = 0.7
 COLLECT_SPEED = 1
-CIRCUMVENT_SPEED = 0.3
+CIRCUMVENT_SPEED = 0.4
 
 SEARCH_TURN_LOOPS = 2 #how many loops to turn for in zig-zag search pattern
 SEARCH_TURN_FREQ = 12 #how often to turn in zig zag
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
-MIN_OBSTACLE_DISTANCE = 18 #object can't be closer than this 
+MIN_OBSTACLE_DISTANCE = 22 #object can't be closer than this 
 COLLECT_LOOPS = 10 #how many times to 'step' before leaving collect state
-SEARCH_WAIT_LOOPS = 5 #how many loops to wait after entering search in case we just
+SEARCH_WAIT_LOOPS = 3*RATE #how many loops to wait after entering search in case we just
 #lost reading for a short amount of time
 
 class PathPlanner(object):
