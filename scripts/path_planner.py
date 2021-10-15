@@ -34,7 +34,7 @@ SEARCH_TURN_LOOPS = 2 #how many loops to turn for in zig-zag search pattern
 SEARCH_TURN_FREQ = 12 #how often to turn in zig zag
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
-MIN_OBSTACLE_DISTANCE = 16 #object can't be closer than this 
+MIN_OBSTACLE_DISTANCE = 18 #object can't be closer than this 
 COLLECT_LOOPS = 10 #how many times to 'step' before leaving collect state
 SEARCH_WAIT_LOOPS = 5 #how many loops to wait after entering search in case we just
 #lost reading for a short amount of time
