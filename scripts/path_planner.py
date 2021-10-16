@@ -24,17 +24,18 @@ import time
 from ece3091.msg import MotorCmd, Obstacles, Targets
 
 RATE = rospy.get_param('/picam/framerate')
-SEARCH_SPEED = 1
+SEARCH_SPEED = 0.9
 ALIGN_SPEED = 0.4
-APPROACH_SPEED = 1
+APPROACH_SPEED = 0.8
 COLLECT_SPEED = 1
-CIRCUMVENT_SPEED = 0.4
+CIRCUMVENT_SPEED = 0.6
 
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
-MIN_OBSTACLE_DISTANCE = 22 #object can't be closer than this 
+MIN_OBSTACLE_DISTANCE = 19 #object can't be closer than this 
 COLLECT_LOOPS = 100 #how many times to 'step' before leaving collect state
-SEARCH_WAIT_LOOPS = 30 #how many loops to wait after entering search in case we just
+SEARCH_WAIT_LOOPS = 10 #how many loops to wait after entering search in case we just
+COLLISION_OVERTURN = 25 #how many loops after we can't see object to keep turning
 #lost reading for a short amount of time
 
 class PathPlanner(object):
@@ -50,6 +51,7 @@ class PathPlanner(object):
         self.collect_idx = None
         self.search_idx = None
         self.search_last_turn = 0
+        self.circumvent_overturn = None
 
         #states for state machine
         self.SEARCH = 0 #no targets. search arena for possible targets
@@ -160,8 +162,8 @@ class PathPlanner(object):
         #as ratio to what we consider 'arrived'
         tolerance = target[1]/ARRIVE_TOL*ALIGN_TOL
         if abs(target[0]) < tolerance:
-            rospy.logdebug('Aligned, alignment: {} with tolerance {}'.format(abs(target[0]),
-                tolerance))
+            #rospy.logdebug('Aligned, alignment: {} with tolerance {}'.format(abs(target[0]),
+            #    tolerance))
             return True
         return False
 
@@ -221,8 +223,15 @@ class PathPlanner(object):
 
     def circumvent(self):
         if not self.collision_imminent():
+            if self.circumvent_overturn is None:
+                self.circumvent_overturn = 0
+            if self.circumvent_overturn < COLLISION_OVERTURN:
+                self.circumvent_overturn += 1
+                return MotorCmd(self.circumvent_direction, CIRCUMVENT_SPEED)
+
             rospy.loginfo('Object avoided. Searching')
             self.state = self.SEARCH
+            self.circumvent_overturn = None
             #invert search dir so next time we zig its in opposite direction
             #will avoid getting stuck in infinite loop with object hopefully
             #self.search_dir = self.CCW if self.search_dir == self.CW else self.CW
@@ -248,6 +257,7 @@ class PathPlanner(object):
         ##we want to turn away from closest corner so invert dir
         #turn_dir = self.CCW if direction == self.CW else self.CW
         rospy.logdebug('Turn dir: {}'.format('CCW' if direction == self.CCW else 'CW'))
+        self.circumvent_direction = direction
 
         return MotorCmd(direction, CIRCUMVENT_SPEED)
 
@@ -279,7 +289,9 @@ class PathPlanner(object):
             #calculate distance of extremities. If any is too close, don't need to check any further
             #rospy.logdebug('Left dist: {}, Right dist: {}'.format(self.distance(lx, ly),
             #   self.distance(rx, ry)))
-            if self.distance(lx, ly) <= MIN_OBSTACLE_DISTANCE or self.distance(rx, ry) <= MIN_OBSTACLE_DISTANCE:
+            if self.distance(lx, ly) <= MIN_OBSTACLE_DISTANCE or \
+                    self.distance(rx, ry) <= MIN_OBSTACLE_DISTANCE or\
+                    self.distance((lx+rx)/2, (ly+ry)/2) <= MIN_OBSTACLE_DISTANCE:
                 return True
         return False
     
@@ -314,8 +326,9 @@ class PathPlanner(object):
         #defer to state callbacks to handle determining next step
         return self.STEP_TABLE[self.state]()
 
+pub = rospy.Publisher('/actuators/motor_cmds', MotorCmd, queue_size=2)
+
 def path_planner_node():
-    pub = rospy.Publisher('/actuators/motor_cmds', MotorCmd, queue_size=2)
     rospy.init_node('path_planner_node', anonymous=False, log_level=rospy.INFO)
 
     planner = PathPlanner() 
@@ -326,10 +339,14 @@ def path_planner_node():
     rate = rospy.Rate(RATE)
     rospy.loginfo('Starting path planner node')
     
+    rospy.on_shutdown(shutdown)
     while not rospy.is_shutdown():
         msg = planner.step() #take step in most appropriate direction
         pub.publish(msg)
         rate.sleep()
+
+def shutdown():
+    pub.publish(MotorCmd(0, 0.0))
 
 if __name__ == '__main__':
     try:

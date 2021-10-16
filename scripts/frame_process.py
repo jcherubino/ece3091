@@ -95,8 +95,10 @@ def detect_obstacles(img):
     return lx, ly, rx, ry
 
 def detect_targets(img):
-    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,20,
-            param1=50,param2=30,minRadius=15, maxRadius=150)
+    #circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,20,
+    #        param1=50,param2=30,minRadius=15, maxRadius=150)
+    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,25,
+                        param1=65,param2=37.5,minRadius=15,maxRadius=80)
     #extract circle centers
     if circles is not None:
         x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
