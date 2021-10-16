@@ -31,7 +31,7 @@ OBSTACLE_BLUR_KERNEL_SZ = 31 #size of medianblur kernel for obstacle detection
 RATE = rospy.get_param('picam/framerate')
 HEIGHT = rospy.get_param('picam/height')
 WIDTH = rospy.get_param('picam/width')
-SAVE_OUTPUT = True
+SAVE_OUTPUT = False
 feature_img = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
 CAM_HEIGHT = 16.9 #height of camera above ground
 CAM_ANGLE_X = 62.2 #degrees
@@ -95,8 +95,8 @@ def detect_obstacles(img):
     return lx, ly, rx, ry
 
 def detect_targets(img):
-    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,25,
-            param1=65,param2=37.5,minRadius=15,maxRadius=80)
+    circles = cv.HoughCircles(img,cv.HOUGH_GRADIENT,1,20,
+            param1=50,param2=30,minRadius=15, maxRadius=150)
     #extract circle centers
     if circles is not None:
         x, y = circles[0, :, 0].tolist(), circles[0, :, 1].tolist()
@@ -141,7 +141,7 @@ def frame_process_node():
         obstacle_pub.publish(obstacles)
         target_pub.publish(targets)
         if SAVE_OUTPUT:
-            if frame_count > 0 and frame_count % 100 == 0:
+            if frame_count > 0 and frame_count % 500 == 0:
                 #save frame for debugging
                cv.imwrite('/home/pi/processed_frames/{}.bmp'.format(frame_count), feature_img)
             frame_count += 1
