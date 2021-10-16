@@ -21,7 +21,7 @@ from ece3091.msg import CamData
 #Program variables
 #picam resolution. N.B. horizontal resolution must be multiple of 32 and vertical multiple of 16
 RESOLUTION = (640, 480) 
-RATE = 5 #Hz rate node spins at 
+RATE = 45 #Hz rate node spins at 
 
 #set values as rosparams so they can be globally accessed in ROS network
 rospy.set_param('picam', {'width': RESOLUTION[0], 'height': RESOLUTION[1],
