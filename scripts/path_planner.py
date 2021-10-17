@@ -24,19 +24,20 @@ import time
 from ece3091.msg import MotorCmd, Obstacles, Targets
 
 RATE = rospy.get_param('/picam/framerate')
-SEARCH_SPEED = 0.9
+SEARCH_SPEED = 0.6
 ALIGN_SPEED = 0.4
-APPROACH_SPEED = 0.8
-COLLECT_SPEED = 1
+APPROACH_SPEED = 0.5
+COLLECT_SPEED = 0.7
 CIRCUMVENT_SPEED = 0.6
 
+SEARCH_PEEK_INTERVAL = 400 #every X ticks peerk to right
+SEARCH_PEEK_TIME = 150 #how long to turn for during peek
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
 MIN_OBSTACLE_DISTANCE = 19 #object can't be closer than this 
-COLLECT_LOOPS = 100 #how many times to 'step' before leaving collect state
-SEARCH_WAIT_LOOPS = 10 #how many loops to wait after entering search in case we just
-COLLISION_OVERTURN = 25 #how many loops after we can't see object to keep turning
-#lost reading for a short amount of time
+COLLECT_LOOPS = 150 #how many times to 'step' before leaving collect state
+SEARCH_WAIT_LOOPS = 10 #how many loops to wait after entering search in case we just lost reading for a short amount of time
+COLLISION_OVERTURN = 0 #how many loops after we can't see object to keep turning
 
 class PathPlanner(object):
     '''
@@ -50,7 +51,6 @@ class PathPlanner(object):
         self.obstacles = None
         self.collect_idx = None
         self.search_idx = None
-        self.search_last_turn = 0
         self.circumvent_overturn = None
 
         #states for state machine
@@ -82,11 +82,11 @@ class PathPlanner(object):
             rospy.logwarn('Collision imminent. Circumventing')
             self.state = self.CIRCUMVENT
             self.search_idx = None
-            self.search_last_turn = 0
             return MotorCmd(self.STOP, 0.0)
 
         if self.search_idx is None:
             self.search_idx = 0
+            self.peeking = False
 
         #if we have a target
         if self.targets is not None and self.targets.x:
@@ -95,40 +95,36 @@ class PathPlanner(object):
                 self.targets.y))
             self.state = self.ALIGN
             self.search_idx = None
-            self.search_last_turn = 0
             return MotorCmd(self.STOP, 0.0)
         
         #check if we have to keep waiting
-        if self.search_idx <= SEARCH_WAIT_LOOPS:
-            self.search_idx += 1
-            return MotorCmd(self.STOP, 0.0)
-
-        '''
-        #drive in zig-zag
         self.search_idx += 1
-        rospy.logdebug('Search index: {}'.format(self.search_idx))
-        #change direction and turn this way for 1 step
-        if self.search_idx % SEARCH_TURN_FREQ == 0:
-            #toggle direction
-            self.search_dir = self.CCW if self.search_dir == self.CW else self.CW
-            self.search_last_turn = self.search_idx
-            return MotorCmd(self.search_dir, SEARCH_SPEED)
-            
-        #first time we are zigging - in this case turn half the distance 
-        if self.search_last_turn == SEARCH_TURN_FREQ:
-            #keep turning for multiple steps to make larger zig zags
-            if self.search_last_turn + SEARCH_TURN_LOOPS > self.search_idx:
-                rospy.logdebug('zigging half distance')
-                return MotorCmd(self.search_dir, SEARCH_SPEED)
 
-        #otherwise, to make zag put us in opposite direction to zig, we
-        #have to turn for twice as long
-        if self.search_last_turn + 2*SEARCH_TURN_LOOPS > self.search_idx:
-            rospy.logdebug('zigging')
-            return MotorCmd(self.search_dir, SEARCH_SPEED)
+        if self.search_idx <= SEARCH_WAIT_LOOPS:
+            return MotorCmd(self.STOP, 0.0)
+    
+        #commence peek
+        if self.peeking == False and self.search_idx % SEARCH_PEEK_INTERVAL == 0:
+            rospy.loginfo('Starting peek')
+            self.peeking = True
+            self.end_of_peek = self.search_idx + SEARCH_PEEK_TIME
+            rospy.logdebug('Current idx: {} End of peek: {}'.format(self.search_idx,
+                self.end_of_peek))
         
-        rospy.logdebug('Searching forward')
-        '''
+        if self.peeking == True:
+            #turning 'out'
+            if self.search_idx < self.end_of_peek:
+                return MotorCmd(self.CW, 0.5) 
+            #turning in
+            elif self.search_idx < self.end_of_peek+SEARCH_PEEK_TIME:
+                rospy.logdebug('Turning in')
+                return MotorCmd(self.CCW, 0.5)
+            #peek done
+            else:
+                rospy.loginfo('Peek done')
+                self.peeking = False
+    
+        #driving straight
         return MotorCmd(self.FORWARD, SEARCH_SPEED)
 
     def align(self):
@@ -246,7 +242,7 @@ class PathPlanner(object):
             ldist = self.distance(lx, ly)
             rdist = self.distance(rx, ry)
             #only care about closer corner
-            rospy.logdebug('ldist: {}. rdist: {}'.format(ldist, rdist))
+            #rospy.logdebug('ldist: {}. rdist: {}'.format(ldist, rdist))
             if ldist < min_dist:
                 min_dist = ldist
                 direction = self.CCW
@@ -256,7 +252,7 @@ class PathPlanner(object):
         
         ##we want to turn away from closest corner so invert dir
         #turn_dir = self.CCW if direction == self.CW else self.CW
-        rospy.logdebug('Turn dir: {}'.format('CCW' if direction == self.CCW else 'CW'))
+        #rospy.logdebug('Turn dir: {}'.format('CCW' if direction == self.CCW else 'CW'))
         self.circumvent_direction = direction
 
         return MotorCmd(direction, CIRCUMVENT_SPEED)
@@ -329,7 +325,7 @@ class PathPlanner(object):
 pub = rospy.Publisher('/actuators/motor_cmds', MotorCmd, queue_size=2)
 
 def path_planner_node():
-    rospy.init_node('path_planner_node', anonymous=False, log_level=rospy.INFO)
+    rospy.init_node('path_planner_node', anonymous=False, log_level=rospy.DEBUG)
 
     planner = PathPlanner() 
 
