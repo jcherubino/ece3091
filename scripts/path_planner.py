@@ -25,19 +25,19 @@ from ece3091.msg import MotorCmd, Obstacles, Targets
 
 RATE = rospy.get_param('/picam/framerate')
 SEARCH_SPEED = 0.6
-ALIGN_SPEED = 0.4
+ALIGN_SPEED = 0.3
 APPROACH_SPEED = 0.5
 COLLECT_SPEED = 0.7
 CIRCUMVENT_SPEED = 0.6
 
-SEARCH_PEEK_INTERVAL = 400 #every X ticks peerk to right
+SEARCH_PEEK_INTERVAL = 10050 #every X ticks peerk to right
 SEARCH_PEEK_TIME = 150 #how long to turn for during peek
 ALIGN_TOL = 2 #+/- cm alignment tolerance for targets
 ARRIVE_TOL = 16
 MIN_OBSTACLE_DISTANCE = 19 #object can't be closer than this 
-COLLECT_LOOPS = 150 #how many times to 'step' before leaving collect state
+COLLECT_LOOPS = 170 #how many times to 'step' before leaving collect state
 SEARCH_WAIT_LOOPS = 10 #how many loops to wait after entering search in case we just lost reading for a short amount of time
-COLLISION_OVERTURN = 0 #how many loops after we can't see object to keep turning
+COLLISION_OVERTURN = 25 #how many loops after we can't see object to keep turning
 
 class PathPlanner(object):
     '''
@@ -51,6 +51,7 @@ class PathPlanner(object):
         self.obstacles = None
         self.collect_idx = None
         self.search_idx = None
+        self.circumvent_direction = None
         self.circumvent_overturn = None
 
         #states for state machine
@@ -228,34 +229,50 @@ class PathPlanner(object):
             rospy.loginfo('Object avoided. Searching')
             self.state = self.SEARCH
             self.circumvent_overturn = None
+            self.circumvent_direction = self.CW
             #invert search dir so next time we zig its in opposite direction
             #will avoid getting stuck in infinite loop with object hopefully
             #self.search_dir = self.CCW if self.search_dir == self.CW else self.CW
             return MotorCmd(self.STOP, 0.0)
         
-        #just turn until we can't see the points anymore
-        #choose turning direction based on closest obstacle
-        min_dist = float('inf')
-        direction = None
-        for lx, ly, rx, ry in zip(self.obstacles.lx, self.obstacles.ly, 
-                self.obstacles.rx, self.obstacles.ry):
-            ldist = self.distance(lx, ly)
-            rdist = self.distance(rx, ry)
-            #only care about closer corner
-            #rospy.logdebug('ldist: {}. rdist: {}'.format(ldist, rdist))
-            if ldist < min_dist:
-                min_dist = ldist
-                direction = self.CCW
-            if rdist < min_dist:
-                min_dist = rdist
-                direction = self.CW
-        
-        ##we want to turn away from closest corner so invert dir
-        #turn_dir = self.CCW if direction == self.CW else self.CW
-        #rospy.logdebug('Turn dir: {}'.format('CCW' if direction == self.CCW else 'CW'))
-        self.circumvent_direction = direction
+        #choose direction
+        if self.circumvent_direction is None:
+            '''
+            #just turn until we can't see the points anymore
+            #choose turning direction based on closest obstacle
+            min_dist = float('inf')
+            direction = None
+            for lx, ly, rx, ry in zip(self.obstacles.lx, self.obstacles.ly, 
+                    self.obstacles.rx, self.obstacles.ry):
+                ldist = self.distance(lx, ly)
+                rdist = self.distance(rx, ry)
+                rospy.logdebug('Left: {}. Right. {}'.format((lx, ly), (rx, ry)))
+                rospy.logdebug('ldist: {}. rdist: {}'.format(ldist, rdist))
+                if ldist < MIN_OBSTACLE_DISTANCE and rdist < MIN_OBSTACLE_DISTANCE:
+                    if abs(lx) < abs(rx) and abs(lx) < min_dist:
+                        rospy.logdebug('lx smaller than rx')
+                        min_dist = abs(lx)
+                        direction  = self.CCW
+                    elif abs(rx) <= abs(lx) and abs(rx) < min_dist:
+                        rospy.logdebug('rx smaller than lx')
+                        min_dist = abs(rx)
+                        direction = self.CW
+                elif ldist < MIN_OBSTACLE_DISTANCE:
+                    min_dist = abs(lx)
+                    direction = self.CCW
+                else:
+                    min_dist = abs(rx)
+                    direction = self.CW
 
-        return MotorCmd(direction, CIRCUMVENT_SPEED)
+            #default
+            if direction is None:
+                direction = self.CW
+            rospy.logdebug('Turn dir: {}'.format('CCW' if direction == self.CCW else 'CW'))
+            self.circumvent_direction = direction
+            '''
+            self.circumvent_direction = self.CW
+        
+        return MotorCmd(self.circumvent_direction, CIRCUMVENT_SPEED)
 
     def collect(self):
         #initialise
@@ -325,7 +342,7 @@ class PathPlanner(object):
 pub = rospy.Publisher('/actuators/motor_cmds', MotorCmd, queue_size=2)
 
 def path_planner_node():
-    rospy.init_node('path_planner_node', anonymous=False, log_level=rospy.DEBUG)
+    rospy.init_node('path_planner_node', anonymous=False, log_level=rospy.INFO)
 
     planner = PathPlanner() 
 
